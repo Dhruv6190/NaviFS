@@ -1,0 +1,16 @@
+[package]
+name = "navifs-graph"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Knowledge graph engine for code symbol dependencies, file relations, and semantic clusters in NaviFS"
+
+[dependencies]
+navifs-core.workspace = true
+async-trait.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true

@@ -1,0 +1,28 @@
+[package]
+name = "navifs-daemon"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "NaviFS daemon and CLI: background indexing worker and Model Context Protocol server"
+
+[[bin]]
+name = "navifs"
+path = "src/main.rs"
+
+[dependencies]
+navifs-core.workspace = true
+navifs-database.workspace = true
+navifs-extract.workspace = true
+navifs-search.workspace = true
+navifs-graph.workspace = true
+navifs-indexer.workspace = true
+navifs-mcp.workspace = true
+
+clap.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true

@@ -1,0 +1,19 @@
+[package]
+name = "navifs-indexer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Directory scanner, filesystem watcher, and extraction orchestrator for NaviFS"
+
+[dependencies]
+navifs-core.workspace = true
+navifs-extract.workspace = true
+navifs-database.workspace = true
+navifs-search.workspace = true
+notify.workspace = true
+walkdir.workspace = true
+tokio.workspace = true
+async-trait.workspace = true
+tracing.workspace = true
+chrono.workspace = true

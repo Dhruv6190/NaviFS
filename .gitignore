@@ -1,0 +1,17 @@
+/target
+**/*.rs.bk
+Cargo.lock
+
+# NaviFS runtime and local database artifacts
+*.db
+*.db-shm
+*.db-wal
+.navifs/
+data/
+
+# IDE and OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
