@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "navifs": {
+      "command": "C:\\Users\\dhruv\\anaconda3\\python.exe",
+      "args": [
+        "c:\\Users\\dhruv\\OneDrive\\Scans\\Desktop\\NaviFS\\navifs_mcp.py"
+      ]
+    }
+  }
+}
