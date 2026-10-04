@@ -1,0 +1,216 @@
+//! Hybrid retrieval engine combining SQLite FTS5 lexical search, metadata/path filters,
+//! aggressive local rank fusion, and feature vector reranking.
+
+use std::collections::HashMap;
+use std::sync::Arc;
+use async_trait::async_trait;
+use tracing::{debug, info};
+use navifs_core::{ChunkId, DatabaseStore, FileChunk, FileId, FileIdentity, Result, SearchHit, SearchProvider};
+use navifs_database::SqliteDatabase;
+use crate::evidence::EvidenceBuilder;
+use crate::fusion::AggressiveRankFusion;
+use crate::reranker::FeatureVectorReranker;
+use crate::types::{CandidateResult, HybridSearchQuery};
+
+/// Hybrid search engine combining SQLite FTS5, path/metadata filters, aggressive rank fusion, and feature reranking
+pub struct HybridSearchEngine {
+    db: Arc<SqliteDatabase>,
+    rank_fusion: AggressiveRankFusion,
+}
+
+impl HybridSearchEngine {
+    pub fn new(db: Arc<SqliteDatabase>) -> Self {
+        Self {
+            db,
+            rank_fusion: AggressiveRankFusion::default_aggressive(),
+        }
+    }
+
+    /// Performs hybrid search combining FTS5 lexical matching, metadata/path filters, aggressive rank fusion,
+    /// and multi-feature vector reranking.
+    pub async fn search_hybrid(&self, query: HybridSearchQuery) -> Result<Vec<CandidateResult>> {
+        let fetch_limit = (query.limit * 3).max(30);
+
+        // 1. Channel A: Content FTS5 lexical search
+        let content_hits = match self.db.fts_search(&query.query, fetch_limit).await {
+            Ok(hits) => hits,
+            Err(e) => {
+                debug!("FTS5 content search returned error (query may be empty or syntax): {}", e);
+                Vec::new()
+            }
+        };
+
+        // 2. Channel B: Scoped Path and Filename FTS5 search
+        let path_hits = match self.db.fts_search_paths(&query.query, fetch_limit).await {
+            Ok(hits) => hits,
+            Err(e) => {
+                debug!("FTS5 path search returned error: {}", e);
+                Vec::new()
+            }
+        };
+
+        // 3. Channel C: Optional Inverted-Index Hits (empty for pure SQLite backend)
+        let lexical_hits: Vec<SearchHit> = Vec::new();
+
+        // 4. Aggressive Local Rank Fusion across channels
+        let fused_candidates = self.rank_fusion.fuse(&content_hits, &path_hits, &lexical_hits);
+
+        if fused_candidates.is_empty() {
+            info!("Hybrid search for '{}' yielded 0 candidates before filtering", query.query);
+            return Ok(Vec::new());
+        }
+
+        // 5. Load File Identities and Chunks for Filtering & Reranking
+        let mut file_cache: HashMap<FileId, Option<FileIdentity>> = HashMap::new();
+        let mut chunk_cache: HashMap<ChunkId, Option<FileChunk>> = HashMap::new();
+
+        for candidate in &fused_candidates {
+            if !file_cache.contains_key(&candidate.file_id) {
+                let file = self.db.get_file(&candidate.file_id).await.unwrap_or(None);
+                file_cache.insert(candidate.file_id, file);
+            }
+            if let Some(c_id) = candidate.chunk_id {
+                if !chunk_cache.contains_key(&c_id) {
+                    let chunk = self.db.get_chunk(&c_id).await.unwrap_or(None);
+                    chunk_cache.insert(c_id, chunk);
+                }
+            }
+        }
+
+        // 6. Enforce Path and Metadata Filters
+        let filtered_candidates: Vec<_> = fused_candidates
+            .into_iter()
+            .filter(|c| {
+                let file_opt = file_cache.get(&c.file_id).and_then(|f| f.as_ref());
+
+                // Apply Path Filter
+                if let Some(ref path_filter) = query.path_filter {
+                    let target_path = file_opt.map(|f| f.fingerprint.as_str()).unwrap_or(&c.path);
+                    if !path_filter.matches_path(target_path) {
+                        return false;
+                    }
+                }
+
+                // Apply Metadata Filter
+                if let Some(ref meta_filter) = query.metadata_filter {
+                    match file_opt {
+                        Some(file) => {
+                            if !meta_filter.matches_file(file) {
+                                return false;
+                            }
+                        }
+                        None => return false,
+                    }
+                }
+
+                true
+            })
+            .collect();
+
+        if filtered_candidates.is_empty() {
+            info!("All candidates filtered out by path/metadata constraints for '{}'", query.query);
+            return Ok(Vec::new());
+        }
+
+        // 7. Multi-Feature Vector Reranking
+        let max_fused = filtered_candidates
+            .first()
+            .map(|c| c.fused_score)
+            .unwrap_or(1.0);
+
+        let reranker = FeatureVectorReranker::new(query.weights.clone());
+        let mut scored_candidates = Vec::new();
+
+        for candidate in filtered_candidates {
+            let file_opt = file_cache.get(&candidate.file_id).and_then(|f| f.as_ref());
+            let chunk_opt = candidate.chunk_id.and_then(|c_id| chunk_cache.get(&c_id).and_then(|c| c.as_ref()));
+
+            let features = reranker.rerank_candidate(
+                &query.query,
+                &candidate,
+                max_fused,
+                file_opt,
+                chunk_opt,
+            );
+
+            // 8. Build Evidence Lookup with line/page bounds
+            let evidence = EvidenceBuilder::resolve_evidence(
+                self.db.as_ref(),
+                &candidate,
+                file_opt,
+                chunk_opt,
+            )
+            .await;
+
+            let filename = file_opt
+                .map(|f| f.fingerprint.filename().to_string())
+                .unwrap_or_else(|| candidate.filename.clone());
+
+            let path = file_opt
+                .map(|f| f.fingerprint.as_str().to_string())
+                .unwrap_or_else(|| candidate.path.clone());
+
+            let mime_type = file_opt
+                .map(|f| f.mime_type.to_string())
+                .unwrap_or_else(|| "text/plain".to_string());
+
+            scored_candidates.push(CandidateResult {
+                file_id: candidate.file_id,
+                chunk_id: candidate.chunk_id,
+                filename,
+                path,
+                mime_type,
+                score: features.composite_score,
+                features,
+                evidence,
+            });
+        }
+
+        // Sort descending by composite score
+        scored_candidates.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        // Retain top K
+        scored_candidates.truncate(query.limit);
+
+        info!(
+            "Hybrid retrieval complete for '{}': returned {} candidates with evidence lookups",
+            query.query,
+            scored_candidates.len()
+        );
+
+        Ok(scored_candidates)
+    }
+}
+
+#[async_trait]
+impl SearchProvider for HybridSearchEngine {
+    async fn index_chunks(&self, chunks: &[FileChunk]) -> Result<()> {
+        self.db.save_chunks(chunks).await
+    }
+
+    async fn remove_file_from_index(&self, file_id: &FileId) -> Result<()> {
+        self.db.delete_chunks_for_file(file_id).await
+    }
+
+    async fn search(&self, query: &str, limit: usize) -> Result<Vec<SearchHit>> {
+        let hybrid_query = HybridSearchQuery::new(query).with_limit(limit);
+        let candidates = self.search_hybrid(hybrid_query).await?;
+
+        Ok(candidates
+            .into_iter()
+            .enumerate()
+            .map(|(idx, c)| SearchHit {
+                chunk_id: c.chunk_id.map(|id| *id.as_uuid()).unwrap_or_default(),
+                file_id: *c.file_id.as_uuid(),
+                score: c.score,
+                content: c.evidence.snippet,
+                path: c.path,
+                chunk_index: idx as u32,
+            })
+            .collect())
+    }
+}

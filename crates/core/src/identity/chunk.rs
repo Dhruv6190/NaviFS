@@ -1,7 +1,7 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::foundation::{ByteRange, ContentHash, LineRange};
+use crate::foundation::{ByteRange, ContentHash, IndexLocator, LineRange, PageRange};
 use crate::identity::file::FileId;
 
 /// Strongly typed chunk identifier
@@ -49,8 +49,11 @@ impl fmt::Display for ChunkId {
 pub enum ChunkType {
     CodeBlock { language: String },
     MarkdownSection { heading: String, depth: u8 },
+    DocxSection { heading: String, depth: u8 },
     TextParagraph,
     JsonBlock,
+    PdfPageSection { page: usize, total_pages: Option<usize> },
+    SpreadsheetSheet { sheet: String, row_start: usize, row_end: usize },
     CsvRowGroup,
     Generic,
 }
@@ -64,6 +67,7 @@ pub struct FileChunk {
     pub chunk_type: ChunkType,
     pub byte_range: ByteRange,
     pub line_range: Option<LineRange>,
+    pub page_range: Option<PageRange>,
     pub content: String,
     pub token_count: usize,
     pub content_hash: ContentHash,
@@ -89,9 +93,30 @@ impl FileChunk {
             chunk_type,
             byte_range,
             line_range,
+            page_range: None,
             content,
             token_count,
             content_hash,
+        }
+    }
+
+    pub fn with_page_range(mut self, page_range: PageRange) -> Self {
+        self.page_range = Some(page_range);
+        self
+    }
+
+    pub fn with_locator(mut self, locator: IndexLocator) -> Self {
+        self.byte_range = locator.byte_range;
+        self.line_range = locator.line_range;
+        self.page_range = locator.page_range;
+        self
+    }
+
+    pub fn locator(&self) -> IndexLocator {
+        IndexLocator {
+            byte_range: self.byte_range,
+            line_range: self.line_range,
+            page_range: self.page_range,
         }
     }
 }

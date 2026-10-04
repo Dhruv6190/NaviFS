@@ -55,6 +55,7 @@ pub enum EntityType {
     TraitOrInterface,
     Module,
     Heading,
+    Section,
     Document,
     Topic,
     Tag,

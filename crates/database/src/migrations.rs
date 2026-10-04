@@ -2,7 +2,7 @@
 
 use chrono::Utc;
 use rusqlite::{params, Connection};
-use tracing::{info, warn};
+use tracing::info;
 use navifs_core::{NaviError, Result};
 
 pub struct Migration {

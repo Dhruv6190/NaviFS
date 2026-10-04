@@ -143,6 +143,17 @@ impl MimeType {
         !self.is_text()
     }
 
+    pub fn is_spreadsheet(&self) -> bool {
+        self.0 == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            || self.0 == "application/vnd.ms-excel"
+            || self.0 == "application/vnd.oasis.opendocument.spreadsheet"
+    }
+
+    pub fn is_docx(&self) -> bool {
+        self.0 == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            || self.0 == "application/msword"
+    }
+
     /// Fast extension-based MIME guesser
     pub fn from_extension(ext: &str) -> Self {
         let mime = match ext.to_lowercase().as_str() {
@@ -160,6 +171,11 @@ impl MimeType {
             "txt" | "log" => "text/plain",
             "csv" => "text/csv",
             "pdf" => "application/pdf",
+            "xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "xls" => "application/vnd.ms-excel",
+            "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "doc" => "application/msword",
+            "pptx" => "application/vnd.openxmlformats-officedocument.presentationml.presentation",
             "png" => "image/png",
             "jpg" | "jpeg" => "image/jpeg",
             "svg" => "image/svg+xml",
@@ -214,5 +230,61 @@ impl LineRange {
         } else {
             0
         }
+    }
+}
+
+/// 1-indexed page range within a paginated document (e.g., PDF)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PageRange {
+    pub start_page: usize,
+    pub end_page: usize,
+}
+
+impl PageRange {
+    pub fn new(start_page: usize, end_page: usize) -> Self {
+        Self { start_page, end_page }
+    }
+
+    pub fn single(page: usize) -> Self {
+        Self {
+            start_page: page,
+            end_page: page,
+        }
+    }
+
+    pub fn page_count(&self) -> usize {
+        if self.end_page >= self.start_page {
+            self.end_page - self.start_page + 1
+        } else {
+            0
+        }
+    }
+}
+
+/// Unified index locator capturing byte, line, and page bounds
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IndexLocator {
+    pub byte_range: ByteRange,
+    pub line_range: Option<LineRange>,
+    pub page_range: Option<PageRange>,
+}
+
+impl IndexLocator {
+    pub fn new(byte_range: ByteRange) -> Self {
+        Self {
+            byte_range,
+            line_range: None,
+            page_range: None,
+        }
+    }
+
+    pub fn with_lines(mut self, start_line: usize, end_line: usize) -> Self {
+        self.line_range = Some(LineRange::new(start_line, end_line));
+        self
+    }
+
+    pub fn with_pages(mut self, start_page: usize, end_page: usize) -> Self {
+        self.page_range = Some(PageRange::new(start_page, end_page));
+        self
     }
 }

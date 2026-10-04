@@ -3,8 +3,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tracing::{debug, info};
-use navifs_core::{EntityId, EntityNode, RelationEdge, RelationId, RelationType, Result};
+use navifs_core::{EntityId, EntityNode, RelationEdge};
 
 /// In-memory graph engine managing entities and directional relationships
 #[derive(Debug, Default, Clone)]

@@ -11,13 +11,13 @@ pub use repository::{
     RelationRepository, VectorMatch,
 };
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use rusqlite::Connection;
 use tracing::info;
 use navifs_core::{
-    DatabaseStore, EmbeddingRecord, EntityId, EntityNode, FileChunk, FileId, FileIdentity,
+    ChunkId, DatabaseStore, EmbeddingRecord, EntityId, EntityNode, FileChunk, FileId, FileIdentity,
     NaviError, RelationEdge, Result,
 };
 
@@ -56,6 +56,11 @@ impl SqliteDatabase {
             db_path: PathBuf::from(":memory:"),
             conn: Arc::new(Mutex::new(conn)),
         })
+    }
+
+    /// Returns the database file path
+    pub fn db_path(&self) -> &Path {
+        &self.db_path
     }
 
     /// Executes embedded migrations creating tables for files, contentions (content_chunks), embeddings, and relationships
@@ -200,6 +205,17 @@ impl DatabaseStore for SqliteDatabase {
         .map_err(|e| NaviError::Internal(e.to_string()))?
     }
 
+    async fn get_chunk(&self, id: &ChunkId) -> Result<Option<FileChunk>> {
+        let conn = self.conn.clone();
+        let id = *id;
+        tokio::task::spawn_blocking(move || {
+            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            ChunkRepository::get_by_id(&conn, &id)
+        })
+        .await
+        .map_err(|e| NaviError::Internal(e.to_string()))?
+    }
+
     async fn get_chunks_for_file(&self, file_id: &FileId) -> Result<Vec<FileChunk>> {
         let conn = self.conn.clone();
         let file_id = *file_id;
@@ -240,6 +256,17 @@ impl DatabaseStore for SqliteDatabase {
         tokio::task::spawn_blocking(move || {
             let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
             RelationRepository::get_entity(&conn, &id)
+        })
+        .await
+        .map_err(|e| NaviError::Internal(e.to_string()))?
+    }
+
+    async fn get_entities_for_file(&self, file_id: &FileId) -> Result<Vec<EntityNode>> {
+        let conn = self.conn.clone();
+        let file_id = *file_id;
+        tokio::task::spawn_blocking(move || {
+            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            RelationRepository::get_entities_for_file(&conn, &file_id)
         })
         .await
         .map_err(|e| NaviError::Internal(e.to_string()))?

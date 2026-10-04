@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS content_chunks (
     byte_end INTEGER NOT NULL,
     line_start INTEGER,
     line_end INTEGER,
+    page_start INTEGER,
+    page_end INTEGER,
     content TEXT NOT NULL,
     token_count INTEGER NOT NULL,
     content_hash TEXT NOT NULL,

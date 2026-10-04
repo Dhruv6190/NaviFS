@@ -1,7 +1,10 @@
 //! Repository for persisting and retrieving content chunks (contentions) using parametric queries
 
 use rusqlite::{params, Connection, OptionalExtension};
-use navifs_core::{ByteRange, ChunkId, ChunkType, ContentHash, FileChunk, FileId, LineRange, NaviError, Result};
+use navifs_core::{
+    ByteRange, ChunkId, ChunkType, ContentHash, FileChunk, FileId, LineRange, NaviError, PageRange,
+    Result,
+};
 
 pub struct ChunkRepository;
 
@@ -18,12 +21,14 @@ impl ChunkRepository {
                     r#"
                     INSERT INTO content_chunks (
                         id, file_id, chunk_index, chunk_type, byte_start, byte_end,
-                        line_start, line_end, content, token_count, content_hash
-                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+                        line_start, line_end, page_start, page_end, content, token_count, content_hash
+                    ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
                     ON CONFLICT(id) DO UPDATE SET
                         content = excluded.content,
                         token_count = excluded.token_count,
-                        content_hash = excluded.content_hash
+                        content_hash = excluded.content_hash,
+                        page_start = excluded.page_start,
+                        page_end = excluded.page_end
                     "#,
                 )
                 .map_err(|e| NaviError::Database(e.to_string()))?;
@@ -39,6 +44,8 @@ impl ChunkRepository {
                     chunk.byte_range.end as i64,
                     chunk.line_range.map(|r| r.start_line as i64),
                     chunk.line_range.map(|r| r.end_line as i64),
+                    chunk.page_range.map(|r| r.start_page as i64),
+                    chunk.page_range.map(|r| r.end_page as i64),
                     chunk.content,
                     chunk.token_count as i64,
                     chunk.content_hash.as_str(),
@@ -59,7 +66,7 @@ impl ChunkRepository {
             .prepare(
                 r#"
                 SELECT id, file_id, chunk_index, chunk_type, byte_start, byte_end,
-                       line_start, line_end, content, token_count, content_hash
+                       line_start, line_end, page_start, page_end, content, token_count, content_hash
                 FROM content_chunks WHERE id = ?1
                 "#,
             )
@@ -80,7 +87,7 @@ impl ChunkRepository {
             .prepare(
                 r#"
                 SELECT id, file_id, chunk_index, chunk_type, byte_start, byte_end,
-                       line_start, line_end, content, token_count, content_hash
+                       line_start, line_end, page_start, page_end, content, token_count, content_hash
                 FROM content_chunks WHERE file_id = ?1 ORDER BY chunk_index ASC
                 "#,
             )
@@ -123,9 +130,11 @@ impl ChunkRepository {
         let byte_end: i64 = row.get(5)?;
         let line_start: Option<i64> = row.get(6)?;
         let line_end: Option<i64> = row.get(7)?;
-        let content: String = row.get(8)?;
-        let token_count: i64 = row.get(9)?;
-        let content_hash_str: String = row.get(10)?;
+        let page_start: Option<i64> = row.get(8)?;
+        let page_end: Option<i64> = row.get(9)?;
+        let content: String = row.get(10)?;
+        let token_count: i64 = row.get(11)?;
+        let content_hash_str: String = row.get(12)?;
 
         let id = ChunkId::parse(&id_str).map_err(|_| rusqlite::Error::InvalidQuery)?;
         let file_id = FileId::parse(&file_id_str).map_err(|_| rusqlite::Error::InvalidQuery)?;
@@ -136,16 +145,24 @@ impl ChunkRepository {
             _ => None,
         };
 
-        Ok(FileChunk {
-            id,
+        let page_range = match (page_start, page_end) {
+            (Some(s), Some(e)) => Some(PageRange::new(s as usize, e as usize)),
+            _ => None,
+        };
+
+        let mut chunk = FileChunk::new(
             file_id,
-            chunk_index: chunk_index as u32,
+            chunk_index as u32,
             chunk_type,
-            byte_range: ByteRange::new(byte_start as u64, byte_end as u64),
+            ByteRange::new(byte_start as u64, byte_end as u64),
             line_range,
             content,
-            token_count: token_count as usize,
-            content_hash: ContentHash::new(content_hash_str),
-        })
+        );
+        chunk.id = id;
+        chunk.token_count = token_count as usize;
+        chunk.content_hash = ContentHash::new(content_hash_str);
+        chunk.page_range = page_range;
+
+        Ok(chunk)
     }
 }

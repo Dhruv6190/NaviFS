@@ -1,6 +1,25 @@
-//! Lexical and semantic search engine for NaviFS chunks
+//! Hybrid retrieval and lexical search engine for NaviFS
+//!
+//! Combines SQLite FTS5 lexical matching, path and metadata filtering, aggressive local rank fusion,
+//! multi-dimensional feature vector reranking (lexical, path similarity, freshness, extraction quality),
+//! and evidence lookups with line and page bounds.
 
-use std::collections::{HashMap, HashSet};
+pub mod evidence;
+pub mod fusion;
+pub mod hybrid;
+pub mod reranker;
+pub mod types;
+
+pub use evidence::EvidenceBuilder;
+pub use fusion::{AggressiveRankFusion, FusedCandidate, RankFusionConfig};
+pub use hybrid::HybridSearchEngine;
+pub use reranker::FeatureVectorReranker;
+pub use types::{
+    CandidateResult, EvidenceLookup, HybridSearchQuery, MetadataFilter, PathFilter,
+    RerankerFeatures, RerankerWeights,
+};
+
+use std::collections::HashMap;
 use std::sync::Arc;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
@@ -14,6 +33,7 @@ struct IndexEntry {
     file_id: uuid::Uuid,
     term_frequency: usize,
     chunk_index: u32,
+    #[allow(dead_code)]
     preview: String,
 }
 
@@ -111,7 +131,6 @@ impl SearchProvider for LexicalSearchEngine {
         let index = self.inverted_index.read().await;
         let store = self.chunk_store.read().await;
 
-        // Score accumulator: chunk_id -> (score, file_id, chunk_index)
         let mut scores: HashMap<uuid::Uuid, (f32, uuid::Uuid, u32)> = HashMap::new();
         let total_docs = store.len().max(1) as f32;
 
@@ -151,5 +170,89 @@ impl SearchProvider for LexicalSearchEngine {
 
         info!("Search for '{}' produced {} hits", query, hits.len());
         Ok(hits)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+    use navifs_core::{ByteRange, ChunkType, ContentHash, DatabaseStore, FileIdentity, LineRange, PageRange};
+    use navifs_database::SqliteDatabase;
+
+    #[test]
+    fn test_path_filter_matching() {
+        let filter = PathFilter::new()
+            .with_prefix("crates/core")
+            .with_extensions(vec!["rs".to_string(), "md".to_string()]);
+
+        assert!(filter.matches_path("crates/core/src/lib.rs"));
+        assert!(filter.matches_path("crates/core/README.md"));
+        assert!(!filter.matches_path("crates/database/src/lib.rs"));
+        assert!(!filter.matches_path("crates/core/binary.exe"));
+    }
+
+    #[test]
+    fn test_metadata_filter_matching() {
+        let file = FileIdentity::new(Path::new("test.pdf"), 5000, chrono::Utc::now());
+        let filter = MetadataFilter::new()
+            .with_size_range(Some(1000), Some(10000))
+            .with_mime_types(vec!["application/pdf".to_string()]);
+
+        assert!(filter.matches_file(&file));
+
+        let small_filter = MetadataFilter::new().with_size_range(Some(10000), None);
+        assert!(!small_filter.matches_file(&file));
+    }
+
+    #[test]
+    fn test_evidence_locator_summary_formatting() {
+        let line_range = Some(LineRange::new(10, 25));
+        let page_range = Some(PageRange::new(3, 3));
+
+        let summary = EvidenceBuilder::format_locator_summary("report.pdf", line_range, page_range);
+        assert_eq!(summary, "report.pdf:Page 3 (Lines 10-25)");
+
+        let code_summary = EvidenceBuilder::format_locator_summary("main.rs", line_range, None);
+        assert_eq!(code_summary, "main.rs:Lines 10-25");
+    }
+
+    #[tokio::test]
+    async fn test_hybrid_search_end_to_end() {
+        let db = Arc::new(SqliteDatabase::in_memory().expect("Failed in-memory DB"));
+        db.initialize().await.expect("Migrations failed");
+
+        // 1. Insert test file
+        let path = Path::new("crates/indexer/src/scanner.rs");
+        let mut file = FileIdentity::new(path, 4096, chrono::Utc::now());
+        file = file.with_hash(ContentHash::from_bytes(b"content for hash"));
+        db.upsert_file(&file).await.unwrap();
+
+        // 2. Insert test chunk
+        let chunk = FileChunk::new(
+            file.id,
+            0,
+            ChunkType::CodeBlock { language: "rust".to_string() },
+            ByteRange::new(0, 200),
+            Some(LineRange::new(20, 50)),
+            "pub struct RecursiveScanner with notify watcher and SHA256 detection".to_string(),
+        );
+        db.save_chunks(&[chunk]).await.unwrap();
+
+        // 3. Perform Hybrid Search
+        let engine = HybridSearchEngine::new(db);
+        let query = HybridSearchQuery::new("RecursiveScanner")
+            .with_path_filter(PathFilter::new().with_extensions(vec!["rs".to_string()]))
+            .with_limit(5);
+
+        let results = engine.search_hybrid(query).await.unwrap();
+        assert!(!results.is_empty(), "Expected candidate result from hybrid search");
+        let top = &results[0];
+        assert_eq!(top.file_id, file.id);
+        assert!(top.score > 0.0);
+        assert!(top.evidence.line_range.is_some());
+        assert_eq!(top.evidence.line_range.unwrap().start_line, 20);
+        assert_eq!(top.evidence.line_range.unwrap().end_line, 50);
+        assert!(top.evidence.locator_summary.contains("Lines 20-50"));
     }
 }

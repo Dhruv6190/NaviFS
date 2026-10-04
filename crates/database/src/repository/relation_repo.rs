@@ -242,4 +242,54 @@ impl RelationRepository {
         }
         Ok(nodes)
     }
+
+    /// Fetches all entities associated with a specific file
+    pub fn get_entities_for_file(conn: &Connection, file_id: &FileId) -> Result<Vec<EntityNode>> {
+        let mut stmt = conn
+            .prepare(
+                r#"
+                SELECT id, name, entity_type, file_id, chunk_id, properties, created_at
+                FROM entities WHERE file_id = ?1 ORDER BY created_at ASC
+                "#,
+            )
+            .map_err(|e| NaviError::Database(e.to_string()))?;
+
+        let f_str = file_id.to_string();
+        let rows = stmt
+            .query_map(params![f_str], |row| {
+                let id_s: String = row.get(0)?;
+                let name: String = row.get(1)?;
+                let t_s: String = row.get(2)?;
+                let f_s: Option<String> = row.get(3)?;
+                let c_s: Option<String> = row.get(4)?;
+                let p_s: String = row.get(5)?;
+                let cr: String = row.get(6)?;
+
+                let node_id = EntityId::parse(&id_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                let entity_type: EntityType = serde_json::from_str(&t_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                let properties: serde_json::Value = serde_json::from_str(&p_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                let file_id = f_s.and_then(|s| FileId::parse(&s).ok());
+                let chunk_id = c_s.and_then(|s| ChunkId::parse(&s).ok());
+                let created_at = DateTime::parse_from_rfc3339(&cr)
+                    .map_err(|_| rusqlite::Error::InvalidQuery)?
+                    .with_timezone(&Utc);
+
+                Ok(EntityNode {
+                    id: node_id,
+                    name,
+                    entity_type,
+                    file_id,
+                    chunk_id,
+                    properties,
+                    created_at,
+                })
+            })
+            .map_err(|e| NaviError::Database(e.to_string()))?;
+
+        let mut nodes = Vec::new();
+        for node_res in rows {
+            nodes.push(node_res.map_err(|e| NaviError::Database(e.to_string()))?);
+        }
+        Ok(nodes)
+    }
 }

@@ -8,13 +8,13 @@ use clap::{Parser, Subcommand};
 use tracing::{info, Level};
 use tracing_subscriber::FmtSubscriber;
 
-use navifs_core::{DatabaseStore, EngineConfig, SearchProvider, WatchDirectoryConfig};
+use navifs_core::{DatabaseStore, EngineConfig, WatchDirectoryConfig};
 use navifs_database::SqliteDatabase;
 use navifs_extract::ExtractorRegistry;
 use navifs_graph::KnowledgeGraph;
-use navifs_indexer::{DirectoryScanner, IndexingPipeline};
+use navifs_indexer::IndexingPipeline;
 use navifs_mcp::McpServer;
-use navifs_search::LexicalSearchEngine;
+use navifs_search::{HybridSearchEngine, HybridSearchQuery, LexicalSearchEngine};
 
 #[derive(Parser, Debug)]
 #[command(name = "navifs")]
@@ -25,8 +25,11 @@ struct Cli {
     #[arg(short, long, help = "Path to custom SQLite database file")]
     db: Option<PathBuf>,
 
+    #[arg(long, help = "Run the MCP server over standard I/O (stdio) directly")]
+    stdio: bool,
+
     #[command(subcommand)]
-    command: Commands,
+    command: Option<Commands>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -47,7 +50,11 @@ enum Commands {
     },
 
     /// Run the Model Context Protocol (MCP) server over standard I/O (stdio)
-    Mcp,
+    #[command(alias = "stdio")]
+    Mcp {
+        #[arg(short, long, help = "Optional workspace path to index before launching MCP server")]
+        path: Option<PathBuf>,
+    },
 
     /// Run as a background daemon with live filesystem watching
     Daemon {
@@ -60,11 +67,18 @@ enum Commands {
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
+    // Default to Mcp stdio mode if no subcommand is passed or if --stdio flag is set
+    let command = match (cli.stdio, cli.command) {
+        (true, _) => Commands::Mcp { path: None },
+        (false, Some(cmd)) => cmd,
+        (false, None) => Commands::Mcp { path: None },
+    };
+
     // Check if we are running MCP mode - if so, suppress stdout logs to avoid corrupting JSON-RPC
-    let is_mcp = matches!(cli.command, Commands::Mcp);
+    let is_mcp = matches!(command, Commands::Mcp { .. });
     let subscriber = FmtSubscriber::builder()
         .with_max_level(if is_mcp { Level::ERROR } else { Level::INFO })
-        .with_writer(if is_mcp { std::io::stderr } else { std::io::stdout as _ })
+        .with_writer(std::io::stderr)
         .finish();
     tracing::subscriber::set_global_default(subscriber)?;
 
@@ -76,6 +90,7 @@ async fn main() -> anyhow::Result<()> {
     db.initialize().await?;
 
     let search = Arc::new(LexicalSearchEngine::new());
+    let hybrid_search = Arc::new(HybridSearchEngine::new(db.clone()));
     let graph = Arc::new(KnowledgeGraph::new());
     let registry = Arc::new(ExtractorRegistry::new());
 
@@ -85,22 +100,24 @@ async fn main() -> anyhow::Result<()> {
         registry.clone(),
     ));
 
-    match cli.command {
+    match command {
         Commands::Index { path } => {
-            println!("🚀 NaviFS: Indexing directory {:?}", path);
+            println!("🚀 NaviFS: Recursively indexing directory {:?}", path);
             let watch_config = WatchDirectoryConfig::new(&path);
-            let files = DirectoryScanner::scan(&watch_config);
-            println!("Found {} files to process...", files.len());
+            let scanner = navifs_indexer::RecursiveScanner::from_config(&watch_config);
+            let (files, permission_denied) = scanner.scan_path(&path);
+            println!("Discovered {} files ({} skipped due to permissions/exclusion)...", files.len(), permission_denied.len());
 
             for (i, file_path) in files.iter().enumerate() {
                 match pipeline.process_file(file_path).await {
                     Ok(identity) => {
                         println!(
-                            "[{}/{}] Indexed: {} ({})",
+                            "[{}/{}] Indexed: {} ({}) [SHA-256: {}]",
                             i + 1,
                             files.len(),
                             identity.fingerprint.filename(),
-                            identity.mime_type
+                            identity.mime_type,
+                            identity.content_hash.as_ref().map(|h| &h.as_str()[..8]).unwrap_or("none")
                         );
                     }
                     Err(e) => {
@@ -112,36 +129,80 @@ async fn main() -> anyhow::Result<()> {
         }
 
         Commands::Search { query, limit } => {
-            println!("🔍 Searching for: \"{}\"", query);
-            let hits = search.search(&query, limit).await?;
-            if hits.is_empty() {
-                println!("No matching chunks found.");
+            println!("🔍 NaviFS Hybrid Search for: \"{}\"", query);
+            let hybrid_query = HybridSearchQuery::new(&query).with_limit(limit);
+            let candidates = hybrid_search.search_hybrid(hybrid_query).await?;
+            if candidates.is_empty() {
+                println!("No matching candidates found.");
             } else {
-                for (i, hit) in hits.iter().enumerate() {
-                    println!("\n--- Hit {} (Score: {:.2}) ---", i + 1, hit.score);
-                    println!("{}", hit.content.trim());
+                for (i, c) in candidates.iter().enumerate() {
+                    println!("\n========================================================");
+                    println!("🏆 Candidate #{} | Score: {:.3} | {}", i + 1, c.score, c.evidence.locator_summary);
+                    println!("📁 Path: {}", c.path);
+                    println!("📊 Features: Lexical: {:.2} | Path: {:.2} | Freshness: {:.2} | Quality: {:.2}",
+                        c.features.lexical_score,
+                        c.features.path_similarity,
+                        c.features.freshness_score,
+                        c.features.extraction_quality
+                    );
+                    if let Some(ref lines) = c.evidence.line_range {
+                        println!("📍 Line Bounds: {}-{}", lines.start_line, lines.end_line);
+                    }
+                    if let Some(ref pages) = c.evidence.page_range {
+                        println!("📄 Page Bounds: {}-{}", pages.start_page, pages.end_page);
+                    }
+                    println!("---------------- Evidence Snippet ----------------");
+                    let snippet = if !c.evidence.snippet.is_empty() {
+                        &c.evidence.snippet
+                    } else {
+                        &c.evidence.content
+                    };
+                    println!("{}", snippet.trim());
                 }
             }
         }
 
-        Commands::Mcp => {
-            let mcp_server = McpServer::new(db, search, graph);
+        Commands::Mcp { path } => {
+            if let Some(ref p) = path {
+                let watch_config = WatchDirectoryConfig::new(p);
+                let scanner = navifs_indexer::RecursiveScanner::from_config(&watch_config);
+                let (files, _) = scanner.scan_path(p);
+                for file_path in files {
+                    let _ = pipeline.process_file(&file_path).await;
+                }
+            }
+            let mcp_server = McpServer::new(db, search, graph)
+                .with_hybrid_engine(hybrid_search);
             mcp_server.run_stdio().await?;
         }
 
         Commands::Daemon { watch } => {
             println!("🌐 NaviFS Daemon active.");
             if let Some(path) = watch {
-                println!("Watching directory: {:?}", path);
+                println!("Scanning and attaching live watcher to directory: {:?}", path);
                 let watch_config = WatchDirectoryConfig::new(&path);
-                let files = DirectoryScanner::scan(&watch_config);
+                let scanner = navifs_indexer::RecursiveScanner::from_config(&watch_config);
+                let (files, _) = scanner.scan_path(&path);
                 for file_path in files {
                     let _ = pipeline.process_file(&file_path).await;
+                }
+
+                // Initialize real-time notify watcher
+                let filter = navifs_indexer::PathExclusionFilter::new(watch_config.ignore_patterns, true);
+                if let Ok((mut watcher, rx)) = navifs_indexer::NotifyWatcher::new(filter, 300) {
+                    if let Ok(()) = watcher.watch_path(&path) {
+                        let pipeline_clone = pipeline.clone();
+                        tokio::spawn(async move {
+                            pipeline_clone.run_watcher_loop(rx).await;
+                        });
+                        println!("⚡ Real-time file system watcher active with SHA-256 change detection.");
+                    }
                 }
             }
 
             println!("Starting integrated MCP server on stdio...");
-            let mcp_server = McpServer::new(db, search, graph);
+            let mcp_server = McpServer::new(db, search, graph)
+                .with_hybrid_engine(hybrid_search);
             mcp_server.run_stdio().await?;
         }
     }

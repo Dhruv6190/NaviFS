@@ -14,7 +14,7 @@ pub mod traits;
 pub use config::{DatabaseConfig, EngineConfig, IndexingConfig, McpConfig, WatchDirectoryConfig};
 pub use error::{NaviError, Result};
 pub use event::{ChangeKind, FsEvent, IndexEvent};
-pub use foundation::{ByteRange, ContentHash, LineRange, MimeType, PathFingerprint};
+pub use foundation::{ByteRange, ContentHash, IndexLocator, LineRange, MimeType, PageRange, PathFingerprint};
 pub use identity::{
     ChunkId, ChunkType, EmbeddingId, EmbeddingRecord, EntityId, EntityNode, EntityType, FileChunk,
     FileId, FileIdentity, FileStatus, RelationEdge, RelationId, RelationType,

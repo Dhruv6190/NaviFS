@@ -2,10 +2,10 @@ use std::path::Path;
 use async_trait::async_trait;
 use crate::error::Result;
 use crate::identity::{
-    chunk::FileChunk,
+    chunk::{ChunkId, FileChunk},
     entity::{EntityId, EntityNode},
     file::{FileId, FileIdentity},
-    relation::{RelationEdge, RelationId},
+    relation::RelationEdge,
 };
 
 /// Trait implemented by content and metadata extractors
@@ -47,12 +47,14 @@ pub trait DatabaseStore: Send + Sync {
 
     // Chunk operations
     async fn save_chunks(&self, chunks: &[FileChunk]) -> Result<()>;
+    async fn get_chunk(&self, id: &ChunkId) -> Result<Option<FileChunk>>;
     async fn get_chunks_for_file(&self, file_id: &FileId) -> Result<Vec<FileChunk>>;
     async fn delete_chunks_for_file(&self, file_id: &FileId) -> Result<()>;
 
     // Entity operations
     async fn save_entities(&self, entities: &[EntityNode]) -> Result<()>;
     async fn get_entity(&self, id: &EntityId) -> Result<Option<EntityNode>>;
+    async fn get_entities_for_file(&self, file_id: &FileId) -> Result<Vec<EntityNode>>;
 
     // Relation operations
     async fn save_relations(&self, relations: &[RelationEdge]) -> Result<()>;
