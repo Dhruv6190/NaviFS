@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NaviFS — Deterministic Filesystem Intelligence for Autonomous AI Agents</title>
+  <meta name="description" content="NaviFS is a high-throughput, local-first filesystem context engine and Model Context Protocol (MCP) server providing zero-mock FTS5 search, mathematical rank fusion, and bounded retrieval for AI agents.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Top Apple-Style Fixed Navigation Bar -->
+  <header class="site-header">
+    <div class="header-container">
+      <a href="#product" class="brand" data-route="#product">
+        <svg class="brand-icon" viewBox="0 0 24 24">
+          <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+          <polyline points="2 17 12 22 22 17"></polyline>
+          <polyline points="2 12 12 17 22 12"></polyline>
+        </svg>
+        <span>NaviFS</span>
+        <span class="brand-badge">v0.1.0</span>
+      </a>
+
+      <nav>
+        <ul class="nav-links">
+          <li><a href="#product" class="nav-link active" data-route="#product">Product</a></li>
+          <li><a href="#features" class="nav-link" data-route="#features">Architecture</a></li>
+          <li><a href="#integrations" class="nav-link" data-route="#integrations">Integrations</a></li>
+          <li><a href="#docs" class="nav-link" data-route="#docs">Documentation</a></li>
+        </ul>
+      </nav>
+
+      <div class="nav-actions">
+        <button class="btn-header-install" onclick="window.location.hash='#docs/installation'">Get Started</button>
+        <a href="https://github.com/Dhruv6190/NaviFS" target="_blank" rel="noopener noreferrer" class="btn-header-github">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+          </svg>
+          <span>GitHub</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       VIEW 1: MNC Product Landing Page
+       ========================================================================= -->
+  <main id="view-landing" class="view-section active landing-content">
+    
+    <!-- Hero Section -->
+    <section class="hero" id="product">
+      <div class="hero-pill">
+        <span class="hero-pill-tag">System Baseline</span>
+        <span class="hero-pill-sep">•</span>
+        <span>Local-First Rust Daemon & Model Context Protocol Server</span>
+      </div>
+
+      <h1 class="hero-title">Deterministic Filesystem Intelligence for Autonomous AI Agents</h1>
+      <p class="hero-description">
+        NaviFS turns complex file hierarchies into high-fidelity context for LLMs. Sub-millisecond FTS5 search, multi-feature rank fusion, bounded range retrieval, and native streaming document extraction over standard MCP.
+      </p>
+
+      <div class="hero-cta-group">
+        <a href="#docs" class="btn-cta-primary" data-route="#docs">
+          <span>Explore Developer Docs</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </a>
+        <a href="#integrations" class="btn-cta-secondary">
+          <span>Connect IDE & Agents</span>
+        </a>
+      </div>
+
+      <div class="terminal-copy-bar" onclick="copySnippet('cmd-install', this)">
+        <span class="terminal-prompt">$</span>
+        <span class="terminal-cmd" id="cmd-install">cargo install navifs-daemon</span>
+        <svg class="terminal-copy-icon" viewBox="0 0 24 24">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+      </div>
+    </section>
+
+    <!-- Bento Features Section -->
+    <section class="section-wrapper" id="features">
+      <div class="section-header">
+        <div class="section-label">Engine Architecture</div>
+        <h2 class="section-title">Engineered for Determinism and Zero Context Waste</h2>
+        <p class="section-desc">Eliminating hallucination, token explosion, and unbounded file dumps with strict index-backed context budgeting.</p>
+      </div>
+
+      <div class="bento-grid">
+        <!-- Card 1 -->
+        <div class="bento-card col-span-2">
+          <div class="bento-card-top">
+            <div class="bento-icon-box">
+              <svg class="bento-icon" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </div>
+            <div class="bento-metric">&lt; 10ms</div>
+            <h3 class="bento-title">Two-Stage Hybrid Retrieval & Rank Fusion</h3>
+            <p class="bento-body">
+              Combines SQLite FTS5 lexical BM25 matching, path scoping, and vector semantic nearest-neighbor scoring using Reciprocal Rank Fusion (RRF k=20.0). Results are refined through a 4-dimensional feature reranker (lexical relevance, path similarity, freshness decay, and extraction quality).
+            </p>
+          </div>
+          <div class="bento-code-snippet">
+score = (0.45 * lexical) + (0.25 * path_similarity) + (0.15 * freshness) + (0.15 * quality)
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="bento-card">
+          <div class="bento-card-top">
+            <div class="bento-icon-box">
+              <svg class="bento-icon" viewBox="0 0 24 24">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+              </svg>
+            </div>
+            <div class="bento-metric">0 Tokens</div>
+            <h3 class="bento-title">Bounded Content Range Retrieval</h3>
+            <p class="bento-body">
+              Never dump whole files into LLM context. The <span class="doc-code-inline">open</span> tool retrieves exact byte, line, or page slices with unique resource URIs and evidence locators.
+            </p>
+          </div>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="bento-card">
+          <div class="bento-card-top">
+            <div class="bento-icon-box">
+              <svg class="bento-icon" viewBox="0 0 24 24">
+                <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+              </svg>
+            </div>
+            <div class="bento-metric">100% Embedded</div>
+            <h3 class="bento-title">Zero-Mock SQLite Storage</h3>
+            <p class="bento-body">
+              Pure local SQLite with WAL mode, foreign key cascades, and automated FTS5 triggers for instant incremental synchronization on file insert, update, or rename.
+            </p>
+          </div>
+        </div>
+
+        <!-- Card 4 -->
+        <div class="bento-card col-span-2">
+          <div class="bento-card-top">
+            <div class="bento-icon-box">
+              <svg class="bento-icon" viewBox="0 0 24 24">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
+            </div>
+            <div class="bento-metric">Native Rust</div>
+            <h3 class="bento-title">Streaming Multi-Format Document Parsers</h3>
+            <p class="bento-body">
+              Pure Rust streaming decoders without Python or external server overhead. Extracts text streams, headings, and cell tables directly from PDF (<span class="doc-code-inline">FlateDecode</span>), Excel spreadsheets (<span class="doc-code-inline">XLSX/XLS/ODS</span> via calamine), Word documents (<span class="doc-code-inline">DOCX</span> via OpenXML), Markdown, and JSON.
+            </p>
+          </div>
+          <div class="bento-code-snippet">
+Supported Formats: .rs .py .ts .js .md .json .pdf .xlsx .xls .docx .txt .csv
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Agent & IDE Integrations Section -->
+    <section class="section-wrapper" id="integrations">
+      <div class="section-header">
+        <div class="section-label">Seamless Agent Hookup</div>
+        <h2 class="section-title">Connect Any Model Context Protocol Host</h2>
+        <p class="section-desc">One command attaches NaviFS to Claude Desktop, Cursor IDE, Windsurf, Antigravity, or custom agent runtimes over standard JSON-RPC 2.0 stdio.</p>
+      </div>
+
+      <div class="integration-box">
+        <div class="tab-nav-bar">
+          <button class="tab-btn active" data-tab="claude">
+            <svg class="tab-icon" viewBox="0 0 24 24"><polygon points="12 2 19 21 12 17 5 21 12 2"></polygon></svg>
+            <span>Claude Desktop</span>
+          </button>
+          <button class="tab-btn" data-tab="cursor">
+            <svg class="tab-icon" viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+            <span>Cursor IDE</span>
+          </button>
+          <button class="tab-btn" data-tab="antigravity">
+            <svg class="tab-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8"></polygon></svg>
+            <span>Antigravity IDE</span>
+          </button>
+          <button class="tab-btn" data-tab="windsurf">
+            <svg class="tab-icon" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
+            <span>Windsurf</span>
+          </button>
+          <button class="tab-btn" data-tab="cli">
+            <svg class="tab-icon" viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
+            <span>CLI Stdio</span>
+          </button>
+        </div>
+
+        <div class="tab-pane-container">
+          <!-- Claude Desktop Pane -->
+          <div class="tab-pane active" data-pane="claude">
+            <div class="pane-header">
+              <div class="pane-meta">
+                <div class="pane-title">Claude Desktop Configuration</div>
+                <div class="pane-path">%APPDATA%\Claude\claude_desktop_config.json (Windows) or ~/Library/Application Support/Claude/claude_desktop_config.json (macOS)</div>
+              </div>
+              <button class="btn-copy-code" onclick="copySnippet('code-claude', this)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <span>Copy JSON</span>
+              </button>
+            </div>
+            <pre class="code-window" id="code-claude"><code>{
+  "mcpServers": {
+    "navifs": {
+      "command": "navifs",
+      "args": ["mcp", "--path", "C:\\Users\\username\\Projects"]
+    }
+  }
+}</code></pre>
+          </div>
+
+          <!-- Cursor IDE Pane -->
+          <div class="tab-pane" data-pane="cursor">
+            <div class="pane-header">
+              <div class="pane-meta">
+                <div class="pane-title">Cursor Settings &gt; Features &gt; MCP Servers</div>
+                <div class="pane-path">Add New MCP Server (Type: command)</div>
+              </div>
+              <button class="btn-copy-code" onclick="copySnippet('code-cursor', this)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <span>Copy Config</span>
+              </button>
+            </div>
+            <pre class="code-window" id="code-cursor"><code>Name: navifs
+Type: command
+Command: navifs mcp --path .</code></pre>
+          </div>
+
+          <!-- Antigravity IDE Pane -->
+          <div class="tab-pane" data-pane="antigravity">
+            <div class="pane-header">
+              <div class="pane-meta">
+                <div class="pane-title">Antigravity MCP Configuration</div>
+                <div class="pane-path">.agents/mcp_config.json or global ~/.gemini/config/mcp_config.json</div>
+              </div>
+              <button class="btn-copy-code" onclick="copySnippet('code-antigravity', this)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <span>Copy JSON</span>
+              </button>
+            </div>
+            <pre class="code-window" id="code-antigravity"><code>{
+  "mcpServers": {
+    "navifs": {
+      "command": "navifs",
+      "args": ["mcp", "--path", "."]
+    }
+  }
+}</code></pre>
+          </div>
+
+          <!-- Windsurf Pane -->
+          <div class="tab-pane" data-pane="windsurf">
+            <div class="pane-header">
+              <div class="pane-meta">
+                <div class="pane-title">Windsurf Cascade Configuration</div>
+                <div class="pane-path">~/.codeium/windsurf/mcp_config.json</div>
+              </div>
+              <button class="btn-copy-code" onclick="copySnippet('code-windsurf', this)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <span>Copy JSON</span>
+              </button>
+            </div>
+            <pre class="code-window" id="code-windsurf"><code>{
+  "mcpServers": {
+    "navifs": {
+      "command": "navifs",
+      "args": ["mcp", "--path", "."]
+    }
+  }
+}</code></pre>
+          </div>
+
+          <!-- CLI Pane -->
+          <div class="tab-pane" data-pane="cli">
+            <div class="pane-header">
+              <div class="pane-meta">
+                <div class="pane-title">Direct Stdio Stream Execution</div>
+                <div class="pane-path">Run interactively from terminal or wrapper scripts</div>
+              </div>
+              <button class="btn-copy-code" onclick="copySnippet('code-cli', this)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <span>Copy CLI</span>
+              </button>
+            </div>
+            <pre class="code-window" id="code-cli"><code># Spawn MCP JSON-RPC 2.0 stdio server
+navifs mcp --path /path/to/project
+
+# Execute direct hybrid search from terminal
+navifs search "RecursiveScanner" --limit 5</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive MCP Playground Section -->
+    <section class="section-wrapper">
+      <div class="section-header">
+        <div class="section-label">Interactive Spec Inspector</div>
+        <h2 class="section-title">Live Model Context Protocol Tools</h2>
+        <p class="section-desc">Select an MCP tool to inspect its live JSON-RPC 2.0 wire contract, arguments, and index-bound response payloads.</p>
+      </div>
+
+      <div class="mcp-playground">
+        <div class="mcp-tool-list">
+          <div class="mcp-tool-item active" data-tool="search">
+            <div class="mcp-tool-name">search</div>
+            <div class="mcp-tool-desc">Two-stage hybrid lexical + semantic retrieval with reranking.</div>
+          </div>
+          <div class="mcp-tool-item" data-tool="open">
+            <div class="mcp-tool-name">open</div>
+            <div class="mcp-tool-desc">Bounded content retrieval by byte, line, page, or chunk.</div>
+          </div>
+          <div class="mcp-tool-item" data-tool="inspect">
+            <div class="mcp-tool-name">inspect</div>
+            <div class="mcp-tool-desc">Metadata, structure (sheets/headings), and temporal events.</div>
+          </div>
+          <div class="mcp-tool-item" data-tool="related">
+            <div class="mcp-tool-name">related</div>
+            <div class="mcp-tool-desc">One-hop knowledge graph traversal over directional edges.</div>
+          </div>
+        </div>
+
+        <div class="mcp-viewer">
+          <div class="mcp-header-bar">
+            <div>
+              <h3 id="mcp-active-tool-title" style="font-size: 16px; font-weight: 600; color: #ffffff;">tools/call: search</h3>
+              <p id="mcp-active-tool-desc" style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">Two-stage hybrid retrieval returning top-K candidates with exact evidence locators.</p>
+            </div>
+          </div>
+
+          <div>
+            <div class="mcp-subheading">Client JSON-RPC 2.0 Request</div>
+            <pre class="json-box"><code id="mcp-req-code"></code></pre>
+          </div>
+
+          <div>
+            <div class="mcp-subheading">NaviFS JSON-RPC 2.0 Response</div>
+            <pre class="json-box"><code id="mcp-res-code"></code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+
+  <!-- =========================================================================
+       VIEW 2: Apple Developer Documentation Portal
+       ========================================================================= -->
+  <div id="view-docs" class="view-section docs-wrapper">
+    
+    <!-- Mobile Sub-Header & Backdrop for Tablet/Mobile Navigation -->
+    <div class="docs-mobile-bar">
+      <button id="btn-toggle-docs-sidebar" class="btn-docs-sidebar-toggle" aria-label="Open documentation navigation">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+        <span>Docs Menu</span>
+      </button>
+      <span class="docs-mobile-current" id="docs-mobile-current-title">Overview</span>
+    </div>
+    <div id="docs-backdrop" class="docs-backdrop"></div>
+
+    <!-- Left Navigation Sidebar -->
+    <aside class="docs-sidebar" id="docs-sidebar">
+      <!-- Mobile Close Bar -->
+      <div class="docs-sidebar-header-mobile">
+        <span class="docs-sidebar-title-mobile">Documentation</span>
+        <button id="btn-close-docs-sidebar" class="btn-docs-sidebar-close" aria-label="Close documentation navigation">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <div class="docs-search-box">
+        <svg class="docs-search-icon" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="docs-search-input" class="docs-search-input" placeholder="Search documentation...">
+      </div>
+
+      <div class="sidebar-category">
+        <div class="sidebar-category-title">Getting Started</div>
+        <ul class="sidebar-nav-list">
+          <li class="sidebar-nav-item">
+            <a href="#docs/overview" class="sidebar-nav-link active" data-doc-link="overview">
+              <span>Overview</span>
+            </a>
+          </li>
+          <li class="sidebar-nav-item">
+            <a href="#docs/installation" class="sidebar-nav-link" data-doc-link="installation">
+              <span>Installation & Build</span>
+            </a>
+          </li>
+          <li class="sidebar-nav-item">
+            <a href="#docs/mcp-setup" class="sidebar-nav-link" data-doc-link="mcp-setup">
+              <span>MCP Host Setup</span>
+              <span class="sidebar-nav-badge">Core</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="sidebar-category">
+        <div class="sidebar-category-title">MCP Tools Reference</div>
+        <ul class="sidebar-nav-list">
+          <li class="sidebar-nav-item">
+            <a href="#docs/tool-search" class="sidebar-nav-link" data-doc-link="tool-search">
+              <span>search Tool (§7.2)</span>
+            </a>
+          </li>
+          <li class="sidebar-nav-item">
+            <a href="#docs/tool-open" class="sidebar-nav-link" data-doc-link="tool-open">
+              <span>open Tool (§7.5)</span>
+            </a>
+          </li>
+          <li class="sidebar-nav-item">
+            <a href="#docs/tool-inspect" class="sidebar-nav-link" data-doc-link="tool-inspect">
+              <span>inspect Tool (§7.4)</span>
+            </a>
+          </li>
+          <li class="sidebar-nav-item">
+            <a href="#docs/tool-related" class="sidebar-nav-link" data-doc-link="tool-related">
+              <span>related Tool (§7.6)</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div class="sidebar-category">
+        <div class="sidebar-category-title">Architecture & Engine</div>
+        <ul class="sidebar-nav-list">
+          <li class="sidebar-nav-item">
+            <a href="#docs/engine-architecture" class="sidebar-nav-link" data-doc-link="engine-architecture">
+              <span>System & Crates (§5)</span>
+            </a>
+          </li>
+          <li class="sidebar-nav-item">
+            <a href="#docs/multimodal-extractors" class="sidebar-nav-link" data-doc-link="multimodal-extractors">
+              <span>Document Extractors</span>
+            </a>
+          </li>
+          <li class="sidebar-nav-item">
+            <a href="#docs/temporal-events" class="sidebar-nav-link" data-doc-link="temporal-events">
+              <span>Temporal Events (§13)</span>
+            </a>
+          </li>
+          <li class="sidebar-nav-item">
+            <a href="#docs/eval-benchmarks" class="sidebar-nav-link" data-doc-link="eval-benchmarks">
+              <span>Evaluation Harness</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- Main Documentation Article Container -->
+    <main class="docs-main">
+      <div class="docs-breadcrumbs">
+        <span>Documentation</span>
+        <span class="docs-breadcrumb-sep">/</span>
+        <span id="doc-breadcrumb-current">Overview</span>
+      </div>
+
+      <!-- DOC ARTICLE 1: Overview -->
+      <article class="doc-article" data-doc-id="overview">
+        <h1 class="doc-article-title">NaviFS Overview</h1>
+        <p class="doc-article-lead">
+          NaviFS is a high-throughput, local-first filesystem intelligence engine and Model Context Protocol (MCP) server written in pure Rust.
+        </p>
+
+        <section class="doc-section">
+          <h2 class="doc-section-title">Design Philosophy</h2>
+          <p class="doc-paragraph">
+            Most LLM coding tools fail when confronting medium or large codebases because they either exhaust the context window by injecting thousands of lines of unverified text, or hallucinate filenames and signatures. NaviFS enforces a strict context budgeting model:
+          </p>
+          <ul style="margin-left: 20px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 20px;">
+            <li><strong>Two-Stage Candidate Generation</strong>: Never inspect files sequentially. Match candidates in parallel across FTS5 content, path indices, and vector embeddings.</li>
+            <li><strong>Mathematical Rank Fusion</strong>: Local RRF ($k=20.0$) normalizes disparate scores and rewards cross-channel confirmation.</li>
+            <li><strong>Bounded Retrievals</strong>: AI agents retrieve exact bounded ranges ($L_{10}-L_{40}$ or Page 3) rather than whole files.</li>
+            <li><strong>Zero Mock Data</strong>: Every query is backed by real SQLite, real cryptographic SHA-256 hashes, and deterministic AST/stream parsers.</li>
+          </ul>
+
+          <div class="doc-callout">
+            <div class="doc-callout-title">Specification Compliance</div>
+            <div class="doc-callout-body">
+              Built to strictly conform to the <em>NaviFS Developer Handoff & Technical Design Specification (Baseline 2026-10-03)</em> and the official <em>Model Context Protocol (2024-11-05)</em>.
+            </div>
+          </div>
+        </section>
+      </article>
+
+      <!-- DOC ARTICLE 2: Installation -->
+      <article class="doc-article" data-doc-id="installation" style="display: none;">
+        <h1 class="doc-article-title">Installation & Build Guide</h1>
+        <p class="doc-article-lead">
+          Building and running the NaviFS workspace from source using Cargo.
+        </p>
+
+        <section class="doc-section">
+          <h2 class="doc-section-title">Prerequisites</h2>
+          <p class="doc-paragraph">
+            NaviFS is built with modern Rust (edition 2021). You will need:
+          </p>
+          <div class="doc-table-wrapper">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>Platform</th>
+                  <th>Toolchain Requirement</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Windows</td>
+                  <td>Rust 1.80+ (MSVC or x86_64-pc-windows-gnu with TDM-GCC-64)</td>
+                  <td>Lock dlltool in <span class="doc-code-inline">.cargo/config.toml</span></td>
+                </tr>
+                <tr>
+                  <td>macOS</td>
+                  <td>Apple Clang & Xcode Command Line Tools</td>
+                  <td>Apple Silicon (M1/M2/M3) and Intel supported</td>
+                </tr>
+                <tr>
+                  <td>Linux</td>
+                  <td>GCC / Clang + libsqlite3-dev</td>
+                  <td>Ubuntu 22.04+, Debian, Arch, Fedora</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2 class="doc-section-title">Compiling the Workspace</h2>
+          <pre class="code-window"><code># Clone repository
+git clone https://github.com/Dhruv6190/NaviFS.git
+cd NaviFS
+
+# Compile release binaries
+cargo build --release
+
+# Run the 24-test suite (including eval harness)
+cargo test --workspace</code></pre>
+        </section>
+      </article>
+
+      <!-- DOC ARTICLE 3: MCP Setup -->
+      <article class="doc-article" data-doc-id="mcp-setup" style="display: none;">
+        <h1 class="doc-article-title">MCP Host Integration</h1>
+        <p class="doc-article-lead">
+          Hooking NaviFS into Claude Desktop, Cursor, and custom agent hosts via stdio.
+        </p>
+
+        <section class="doc-section">
+          <h2 class="doc-section-title">Protocol Specification</h2>
+          <p class="doc-paragraph">
+            NaviFS implements the Model Context Protocol over standard input/output (<span class="doc-code-inline">stdio</span>). It handles JSON-RPC 2.0 messages framed by newline delimiters.
+          </p>
+          <div class="doc-callout">
+            <div class="doc-callout-title">Automatic Server Instructions</div>
+            <div class="doc-callout-body">
+              During the MCP <span class="doc-code-inline">initialize</span> handshake, NaviFS automatically sends system prompts to the agent instructing it to avoid unbounded retrievals and use <span class="doc-code-inline">search -> inspect -> open</span> pipelines.
+            </div>
+          </div>
+        </section>
+      </article>
+
+      <!-- DOC ARTICLE 4: search Tool -->
+      <article class="doc-article" data-doc-id="tool-search" style="display: none;">
+        <h1 class="doc-article-title">search Tool (§7.2)</h1>
+        <p class="doc-article-lead">
+          Hybrid retrieval combining SQLite FTS5, path/metadata filters, aggressive rank fusion, and feature vector reranking.
+        </p>
+
+        <section class="doc-section">
+          <h2 class="doc-section-title">Input Parameters</h2>
+          <div class="doc-table-wrapper">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Type</th>
+                  <th>Required</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="doc-code-inline">query</span></td>
+                  <td>string</td>
+                  <td>Yes</td>
+                  <td>Search keywords or phrase</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">filters</span></td>
+                  <td>object</td>
+                  <td>No</td>
+                  <td>Nested filters: <span class="doc-code-inline">path_prefix</span>, <span class="doc-code-inline">mime_types</span>, <span class="doc-code-inline">modified_after</span>, <span class="doc-code-inline">modified_before</span></td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">limit</span></td>
+                  <td>integer</td>
+                  <td>No</td>
+                  <td>Maximum top-K candidates (default 10)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </article>
+
+      <!-- DOC ARTICLE 5: open Tool -->
+      <article class="doc-article" data-doc-id="tool-open" style="display: none;">
+        <h1 class="doc-article-title">open Tool (§7.5)</h1>
+        <p class="doc-article-lead">
+          Bounded content range retrieval by lines, pages, byte offsets, or chunk index with deterministic index locators and resource URIs.
+        </p>
+
+        <section class="doc-section">
+          <h2 class="doc-section-title">Zero Token Explosion Architecture</h2>
+          <p class="doc-paragraph">
+            AI agents frequently crash context windows when attempting to read large files. The <span class="doc-code-inline">open</span> tool enforces strict bounded retrieval. It accepts either line intervals, page boundaries (PDF), byte slices, or exact chunk IDs.
+          </p>
+
+          <h2 class="doc-section-title">Parameters</h2>
+          <div class="doc-table-wrapper">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>Field</th>
+                  <th>Type</th>
+                  <th>Required</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="doc-code-inline">file_id</span></td>
+                  <td>string (UUID)</td>
+                  <td>Optional*</td>
+                  <td>Unique file identifier (*Either file_id or path required)</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">path</span></td>
+                  <td>string</td>
+                  <td>Optional*</td>
+                  <td>Relative or absolute filesystem path</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">start_line</span></td>
+                  <td>integer</td>
+                  <td>Optional</td>
+                  <td>1-indexed starting line number of the bounded range</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">end_line</span></td>
+                  <td>integer</td>
+                  <td>Optional</td>
+                  <td>1-indexed ending line number of the bounded range</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">start_page</span></td>
+                  <td>integer</td>
+                  <td>Optional</td>
+                  <td>1-indexed starting page number (for PDF documents)</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">end_page</span></td>
+                  <td>integer</td>
+                  <td>Optional</td>
+                  <td>1-indexed ending page number (for PDF documents)</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">byte_start</span></td>
+                  <td>integer</td>
+                  <td>Optional</td>
+                  <td>Physical starting byte offset</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">byte_end</span></td>
+                  <td>integer</td>
+                  <td>Optional</td>
+                  <td>Physical ending byte offset</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">chunk_index</span></td>
+                  <td>integer</td>
+                  <td>Optional</td>
+                  <td>Sequential chunk number within the file</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2 class="doc-section-title">Standard Response Schema</h2>
+          <pre class="code-window"><code>{
+  "file_id": "0194a2b1-3829-7c1e-9182-3d8a92e104f7",
+  "path": "crates/core/src/foundation.rs",
+  "filename": "foundation.rs",
+  "resource_uri": "navifs://file/0194a2b1-3829-7c1e-9182-3d8a92e104f7/lines/1-25",
+  "content_type": "text/x-rust",
+  "locator_summary": "foundation.rs:Lines 1-25",
+  "byte_range": { "start": 0, "end": 1420 },
+  "line_range": { "start_line": 1, "end_line": 25 },
+  "page_range": null,
+  "content": "use std::fmt;\nuse std::path::{Path, PathBuf};...",
+  "total_lines": 25,
+  "truncated": false,
+  "chunks_included": ["0194a2b1-3829-7000-0000-000000000001"]
+}</code></pre>
+        </section>
+      </article>
+
+      <!-- DOC ARTICLE 6: inspect Tool -->
+      <article class="doc-article" data-doc-id="tool-inspect" style="display: none;">
+        <h1 class="doc-article-title">inspect Tool (§7.4)</h1>
+        <p class="doc-article-lead">
+          Generates structural metadata summaries, chunk metrics, worksheet/heading taxonomy, and recent temporal event history.
+        </p>
+
+        <section class="doc-section">
+          <h2 class="doc-section-title">Structural Discovery</h2>
+          <p class="doc-paragraph">
+            The <span class="doc-code-inline">inspect</span> tool enables an agent to survey an entire document's shape before consuming any chunk content:
+          </p>
+          <ul style="margin-left: 20px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 20px;">
+            <li><strong>Spreadsheets (XLSX, XLS, ODS)</strong>: Discovers all worksheet names (e.g. <span class="doc-code-inline">["UAE Leads", "Contacts", "Revenue"]</span>).</li>
+            <li><strong>Word & Markdown (DOCX, MD)</strong>: Lists hierarchical sections and heading titles.</li>
+            <li><strong>Source Code (Rust, Python, TS)</strong>: Outlines extracted AST classes, structs, traits, and functions.</li>
+            <li><strong>Temporal Audit History</strong>: Returns the last 10 lifecycle events (<span class="doc-code-inline">created</span>, <span class="doc-code-inline">modified</span>, <span class="doc-code-inline">indexed</span>, <span class="doc-code-inline">deleted</span>) with timestamps.</li>
+          </ul>
+
+          <h2 class="doc-section-title">Response Example (Excel Spreadsheet)</h2>
+          <pre class="code-window"><code>{
+  "file_id": "0194a2b1-3829-7c1e-9182-3d8a92e104f7",
+  "path": "finance/uae_ecommerce_q3.xlsx",
+  "filename": "uae_ecommerce_q3.xlsx",
+  "mime_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "size_bytes": 48920,
+  "content_hash": "a4f89d31b2c45e89d123456789abcdef0123456789abcdef0123456789abcdef",
+  "status": "Indexed",
+  "created_at": "2026-09-15T08:30:00Z",
+  "modified_at": "2026-09-28T14:22:10Z",
+  "indexed_at": "2026-10-04T12:00:00Z",
+  "chunk_count": 6,
+  "structure": {
+    "kind": "spreadsheet",
+    "sheets": ["UAE Leads", "Contacts", "Revenue_Breakdown"],
+    "sections": null
+  },
+  "recent_events": [
+    { "id": "evt-01", "event_type": "indexed", "timestamp": "2026-10-04T12:00:00Z", "source": "pipeline", "metadata": { "chunks_count": 6 } },
+    { "id": "evt-02", "event_type": "modified", "timestamp": "2026-09-28T14:22:10Z", "source": "watcher", "metadata": { "size_bytes": 48920 } }
+  ]
+}</code></pre>
+        </section>
+      </article>
+
+      <!-- DOC ARTICLE 7: related Tool -->
+      <article class="doc-article" data-doc-id="tool-related" style="display: none;">
+        <h1 class="doc-article-title">related Tool (§7.6)</h1>
+        <p class="doc-article-lead">
+          One-to-one hop knowledge graph traversal discovering adjacent nodes, directional relation edges, and relation weights.
+        </p>
+
+        <section class="doc-section">
+          <h2 class="doc-section-title">Knowledge Graph Traversal</h2>
+          <p class="doc-paragraph">
+            NaviFS builds an in-memory and SQLite-backed directional property graph connecting files, sections, code AST entities, and worksheets. The <span class="doc-code-inline">related</span> tool returns both incoming and outgoing edges for any center node.
+          </p>
+
+          <h2 class="doc-section-title">Supported Relationship Types</h2>
+          <div class="doc-table-wrapper">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>Relation Type</th>
+                  <th>Direction</th>
+                  <th>Semantics</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="doc-code-inline">Contains</span></td>
+                  <td>Parent -&gt; Child</td>
+                  <td>File contains worksheet, heading section, or struct</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">References</span></td>
+                  <td>Source -&gt; Target</td>
+                  <td>Document cites or references another document path</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">Imports</span></td>
+                  <td>Source -&gt; Target</td>
+                  <td>Source file imports module or external dependency</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">Defines</span></td>
+                  <td>File -&gt; Entity</td>
+                  <td>File declares a function, class, type, or schema</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </article>
+
+      <!-- DOC ARTICLE 8: Engine Architecture -->
+      <article class="doc-article" data-doc-id="engine-architecture" style="display: none;">
+        <h1 class="doc-article-title">System & Crates Architecture (§5)</h1>
+        <p class="doc-article-lead">
+          Detailed technical overview of the 8 modular workspace crates comprising NaviFS.
+        </p>
+
+        <section class="doc-section">
+          <div class="doc-table-wrapper">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>Crate</th>
+                  <th>Role & Key Responsibilities</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="doc-code-inline">crates/core</span></td>
+                  <td>Domain identity, FileId, ChunkId, ByteRange, LineRange, MimeType, Result types</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">crates/database</span></td>
+                  <td>Embedded SQLite, WAL mode, foreign keys, migrations 0001-0003, FTS5 sync triggers</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">crates/extract</span></td>
+                  <td>Multi-modal parsers: PDF, XLSX (calamine), DOCX (quick-xml), Markdown, JSON</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">crates/search</span></td>
+                  <td>FTS5 content/path search, Vector ANN, RRF (k=20), Feature Reranker</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">crates/graph</span></td>
+                  <td>In-memory bidirectional adjacency index and BFS traversal</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">crates/indexer</span></td>
+                  <td>Directory scanner (WalkDir) and Notify debounced watcher with SHA-256 verification</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">crates/mcp</span></td>
+                  <td>JSON-RPC 2.0 stdio server, tool dispatcher, MCP 2024-11-05 schemas</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">crates/daemon</span></td>
+                  <td>CLI binary entrypoint: daemon, scan, search, and mcp stdio mode</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2 class="doc-section-title">Automated SQLite FTS5 Synchronization</h2>
+          <p class="doc-paragraph">
+            NaviFS uses database-level triggers to keep full-text indices perfectly synchronized with zero application latency. When content chunks are inserted, updated, or deleted, triggers automatically update the FTS5 virtual table.
+          </p>
+        </section>
+      </article>
+
+      <!-- DOC ARTICLE 9: Multimodal Extractors -->
+      <article class="doc-article" data-doc-id="multimodal-extractors" style="display: none;">
+        <h1 class="doc-article-title">Document Extractors (§10)</h1>
+        <p class="doc-article-lead">
+          Memory-efficient, pure-Rust extraction pipelines for complex document formats.
+        </p>
+
+        <section class="doc-section">
+          <h2 class="doc-section-title">Extractor Capabilities</h2>
+          <div class="doc-table-wrapper">
+            <table class="doc-table">
+              <thead>
+                <tr>
+                  <th>Format</th>
+                  <th>Parser Engine</th>
+                  <th>Extracted Features</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="doc-code-inline">.xlsx / .xls / .ods</span></td>
+                  <td>calamine</td>
+                  <td>Worksheets, Markdown table chunks (50-row batches), cell locators</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">.docx</span></td>
+                  <td>quick-xml + zip</td>
+                  <td>Heading hierarchy (H1-H6), Markdown tables, section chunks</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">.pdf</span></td>
+                  <td>Streaming FlateDecode</td>
+                  <td>Text operators (Tj/TJ), hex/literal strings, exact page numbers</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">.md / .markdown</span></td>
+                  <td>Line-bound Lexer</td>
+                  <td>Heading trees, AST chunks, line ranges</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">.json</span></td>
+                  <td>serde_json Recursive</td>
+                  <td>Key paths, structural boundaries, leaf value indexing</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">Code & Plain Text</span></td>
+                  <td>Token Windowing</td>
+                  <td>Sliding windows with configurable overlap and exact line ranges</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </article>
+
+      <!-- DOC ARTICLE 10: Temporal Events -->
+      <article class="doc-article" data-doc-id="temporal-events" style="display: none;">
+        <h1 class="doc-article-title">Temporal Intelligence (§13 & §17.1)</h1>
+        <p class="doc-article-lead">
+          Persistent audit logging and time-travel query support for file lifecycle events.
+        </p>
+
+        <section class="doc-section">
+          <h2 class="doc-section-title">Event Lifecycle State Machine</h2>
+          <p class="doc-paragraph">
+            NaviFS tracks physical and logical file mutations through persistent SQLite event logging:
+          </p>
+          <ul style="margin-left: 20px; color: var(--text-secondary); line-height: 1.8;">
+            <li><span class="doc-code-inline">created</span>: Emitted when a new file path is discovered by the initial scanner.</li>
+            <li><span class="doc-code-inline">modified</span>: Emitted when the OS notify watcher triggers and SHA-256 content verification detects changes.</li>
+            <li><span class="doc-code-inline">indexed</span>: Emitted when multi-modal extraction succeeds and chunks/entities are written to SQLite.</li>
+            <li><span class="doc-code-inline">deleted</span>: Emitted when a file is purged from disk, cascading deletion across chunks and FTS5.</li>
+          </ul>
+        </section>
+      </article>
+
+      <!-- DOC ARTICLE 11: Eval & Benchmarking -->
+      <article class="doc-article" data-doc-id="eval-benchmarks" style="display: none;">
+        <h1 class="doc-article-title">Evaluation Harness (§22)</h1>
+        <p class="doc-article-lead">
+          Golden benchmark suite verifying retrieval precision, latency, and automated MCP tool trace workflows.
+        </p>
+
+        <section class="doc-section">
+          <h2 class="doc-section-title">Running the Benchmark Suite</h2>
+          <pre class="code-window"><code># Execute full evaluation harness
+cargo run -p navifs-eval --release
+
+# Run automated MCP tool trace integration test
+cargo test -p navifs-eval --test trace_test</code></pre>
+          <p class="doc-paragraph" style="margin-top: 16px;">
+            The evaluation harness seeds a multi-format synthetic filesystem (Rust code, Markdown docs, JSON configurations, PDF reports, and Excel spreadsheets), runs standard queries, and measures Precision@K, Recall@K, Mean Reciprocal Rank (MRR), and end-to-end P99 latency.
+          </p>
+        </section>
+      </article>
+
+    </main>
+  </div>
+
+
+  <!-- =========================================================================
+       Footer: Apple Minimalist Monochrome
+       ========================================================================= -->
+  <footer class="site-footer">
+    <div class="footer-container">
+      <div class="footer-grid">
+        <div>
+          <div class="footer-col-title">NaviFS Engine</div>
+          <ul class="footer-links">
+            <li><a href="#product" class="footer-link" data-route="#product">Product</a></li>
+            <li><a href="#features" class="footer-link" data-route="#features">Architecture</a></li>
+            <li><a href="#integrations" class="footer-link" data-route="#integrations">Integrations</a></li>
+            <li><a href="#docs" class="footer-link" data-route="#docs">Documentation</a></li>
+          </ul>
+        </div>
+        <div>
+          <div class="footer-col-title">MCP Protocol</div>
+          <ul class="footer-links">
+            <li><a href="#docs/tool-search" class="footer-link" data-doc-link="tool-search">search Tool</a></li>
+            <li><a href="#docs/tool-open" class="footer-link" data-doc-link="tool-open">open Tool</a></li>
+            <li><a href="#docs/tool-inspect" class="footer-link" data-doc-link="tool-inspect">inspect Tool</a></li>
+            <li><a href="#docs/tool-related" class="footer-link" data-doc-link="tool-related">related Tool</a></li>
+          </ul>
+        </div>
+        <div>
+          <div class="footer-col-title">Resources</div>
+          <ul class="footer-links">
+            <li><a href="https://github.com/Dhruv6190/NaviFS" target="_blank" rel="noopener noreferrer" class="footer-link">GitHub Repository</a></li>
+            <li><a href="https://crates.io" target="_blank" rel="noopener noreferrer" class="footer-link">Crates.io Package</a></li>
+            <li><a href="#docs/installation" class="footer-link" data-doc-link="installation">Release Notes</a></li>
+          </ul>
+        </div>
+        <div>
+          <div class="footer-col-title">Project Standard</div>
+          <p style="color: var(--text-tertiary); line-height: 1.6; margin-top: 4px;">
+            Licensed under Apache 2.0 / MIT.<br>
+            Designed according to the Model Context Protocol standard 2024-11-05.
+          </p>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>&copy; 2026 NaviFS Project. Built for high-integrity autonomous AI agents.</div>
+        <div style="font-family: var(--font-mono); color: var(--text-tertiary);">Zero Mock • 100% Rust • Local First</div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

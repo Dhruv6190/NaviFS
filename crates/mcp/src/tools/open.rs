@@ -23,12 +23,15 @@ pub struct BoundedContentResponse {
     pub file_id: FileId,
     pub path: String,
     pub filename: String,
+    pub resource_uri: String,
+    pub content_type: String,
     pub locator_summary: String,
     pub byte_range: ByteRange,
     pub line_range: Option<LineRange>,
     pub page_range: Option<PageRange>,
     pub content: String,
     pub total_lines: usize,
+    pub truncated: bool,
     pub chunks_included: Vec<ChunkId>,
 }
 
@@ -125,17 +128,21 @@ impl OpenTool {
 
                 let line_range = Some(LineRange::new(start_l, end_l));
                 let locator = EvidenceBuilder::format_locator_summary(&filename, line_range, None);
+                let resource_uri = format!("navifs://file/{}/lines/{}-{}", file.id, start_l, end_l);
 
                 return Ok(BoundedContentResponse {
                     file_id: file.id,
                     path,
                     filename,
+                    resource_uri,
+                    content_type: file.mime_type.as_str().to_string(),
                     locator_summary: locator,
                     byte_range: ByteRange::new(0, slice.len() as u64),
                     line_range,
                     page_range: None,
                     content: slice,
                     total_lines: end_l.saturating_sub(start_l) + 1,
+                    truncated: false,
                     chunks_included: Vec::new(),
                 });
             }
@@ -151,16 +158,20 @@ impl OpenTool {
                     target.line_range,
                     target.page_range,
                 );
+                let resource_uri = format!("navifs://file/{}/chunk/{}", file.id, target.id);
                 return Ok(BoundedContentResponse {
                     file_id: file.id,
                     path,
                     filename,
+                    resource_uri,
+                    content_type: file.mime_type.as_str().to_string(),
                     locator_summary: locator,
                     byte_range: target.byte_range,
                     line_range: target.line_range,
                     page_range: target.page_range,
                     content: target.content.clone(),
                     total_lines: target.content.lines().count(),
+                    truncated: false,
                     chunks_included: vec![target.id],
                 });
             } else {
@@ -197,17 +208,21 @@ impl OpenTool {
                 };
                 let page_range = Some(PageRange::new(start_p, end_p));
                 let locator = EvidenceBuilder::format_locator_summary(&filename, line_range, page_range);
+                let resource_uri = format!("navifs://file/{}/pages/{}-{}", file.id, start_p, end_p);
 
                 return Ok(BoundedContentResponse {
                     file_id: file.id,
                     path,
                     filename,
+                    resource_uri,
+                    content_type: file.mime_type.as_str().to_string(),
                     locator_summary: locator,
                     byte_range: ByteRange::new(min_byte, max_byte),
                     line_range,
                     page_range,
                     content: combined_content,
                     total_lines: max_line.unwrap_or(0).saturating_sub(min_line.unwrap_or(0)) + 1,
+                    truncated: false,
                     chunks_included: matching.iter().map(|c| c.id).collect(),
                 });
             }
@@ -235,17 +250,21 @@ impl OpenTool {
                 let max_byte = matching.last().map(|c| c.byte_range.end).unwrap_or(0);
                 let line_range = Some(LineRange::new(start_l, end_l));
                 let locator = EvidenceBuilder::format_locator_summary(&filename, line_range, None);
+                let resource_uri = format!("navifs://file/{}/lines/{}-{}", file.id, start_l, end_l);
 
                 return Ok(BoundedContentResponse {
                     file_id: file.id,
                     path,
                     filename,
+                    resource_uri,
+                    content_type: file.mime_type.as_str().to_string(),
                     locator_summary: locator,
                     byte_range: ByteRange::new(min_byte, max_byte),
                     line_range,
                     page_range: None,
                     content: combined_content,
                     total_lines: end_l.saturating_sub(start_l) + 1,
+                    truncated: false,
                     chunks_included: matching.iter().map(|c| c.id).collect(),
                 });
             }
@@ -274,17 +293,21 @@ impl OpenTool {
                     _ => None,
                 };
                 let locator = EvidenceBuilder::format_locator_summary(&filename, line_range, None);
+                let resource_uri = format!("navifs://file/{}/bytes/{}-{}", file.id, min_byte, max_byte);
 
                 return Ok(BoundedContentResponse {
                     file_id: file.id,
                     path,
                     filename,
+                    resource_uri,
+                    content_type: file.mime_type.as_str().to_string(),
                     locator_summary: locator,
                     byte_range: ByteRange::new(min_byte, max_byte),
                     line_range,
                     page_range: None,
                     content: combined_content,
                     total_lines: line_range.map(|l| l.end_line.saturating_sub(l.start_line) + 1).unwrap_or(0),
+                    truncated: false,
                     chunks_included: matching.iter().map(|c| c.id).collect(),
                 });
             }
@@ -293,17 +316,21 @@ impl OpenTool {
         // 5. Default: Return first chunk
         let first = &chunks[0];
         let locator = EvidenceBuilder::format_locator_summary(&filename, first.line_range, first.page_range);
+        let resource_uri = format!("navifs://file/{}/chunk/{}", file.id, first.id);
 
         Ok(BoundedContentResponse {
             file_id: file.id,
             path,
             filename,
+            resource_uri,
+            content_type: file.mime_type.as_str().to_string(),
             locator_summary: locator,
             byte_range: first.byte_range,
             line_range: first.line_range,
             page_range: first.page_range,
             content: first.content.clone(),
             total_lines: first.content.lines().count(),
+            truncated: false,
             chunks_included: vec![first.id],
         })
     }

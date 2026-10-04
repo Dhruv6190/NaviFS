@@ -1,6 +1,7 @@
 //! `search` tool: Hybrid retrieval combining SQLite FTS5, path/metadata filters,
 //! aggressive local rank fusion, and feature vector reranking with evidence locators.
 
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::Value;
 use navifs_core::{ByteRange, ChunkId, FileId, SearchProvider};
@@ -9,12 +10,23 @@ use navifs_search::{
     MetadataFilter, PathFilter, RerankerFeatures,
 };
 
+/// Nested filters object according to MCP Contract §7.2
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct SearchFilters {
+    pub path_prefix: Option<String>,
+    pub extensions: Option<Vec<String>>,
+    pub mime_types: Option<Vec<String>>,
+    pub modified_after: Option<String>,
+    pub modified_before: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct SearchArgs {
     pub query: String,
     pub path_prefix: Option<String>,
     pub extensions: Option<Vec<String>>,
     pub mime_types: Option<Vec<String>>,
+    pub filters: Option<SearchFilters>,
     pub limit: Option<usize>,
 }
 
@@ -31,6 +43,34 @@ impl SearchTool {
                     "query": {
                         "type": "string",
                         "description": "Search query terms or phrase"
+                    },
+                    "filters": {
+                        "type": "object",
+                        "description": "Optional structured filters for narrowing search candidate space",
+                        "properties": {
+                            "path_prefix": {
+                                "type": "string",
+                                "description": "Optional directory or path prefix (e.g. 'crates/core' or 'docs/')"
+                            },
+                            "extensions": {
+                                "type": "array",
+                                "items": { "type": "string" },
+                                "description": "Optional list of allowed file extensions without dot (e.g. ['rs', 'md', 'pdf', 'xlsx'])"
+                            },
+                            "mime_types": {
+                                "type": "array",
+                                "items": { "type": "string" },
+                                "description": "Optional list of allowed MIME types (e.g. ['application/pdf', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'])"
+                            },
+                            "modified_after": {
+                                "type": "string",
+                                "description": "Optional ISO 8601 timestamp string for lower bound on modification time (e.g. '2026-09-01T00:00:00Z')"
+                            },
+                            "modified_before": {
+                                "type": "string",
+                                "description": "Optional ISO 8601 timestamp string for upper bound on modification time (e.g. '2026-10-01T00:00:00Z')"
+                            }
+                        }
                     },
                     "path_prefix": {
                         "type": "string",
@@ -64,15 +104,20 @@ impl SearchTool {
         let limit = args.limit.unwrap_or(10).max(1);
         let mut query = HybridSearchQuery::new(&args.query).with_limit(limit);
 
+        // Merge flat arguments with nested filters object (§7.2)
+        let path_prefix = args.filters.as_ref().and_then(|f| f.path_prefix.clone()).or(args.path_prefix);
+        let extensions = args.filters.as_ref().and_then(|f| f.extensions.clone()).or(args.extensions);
+        let mime_types = args.filters.as_ref().and_then(|f| f.mime_types.clone()).or(args.mime_types);
+
         let mut path_filter = PathFilter::new();
         let mut has_path_filter = false;
 
-        if let Some(prefix) = args.path_prefix {
+        if let Some(prefix) = path_prefix {
             path_filter = path_filter.with_prefix(prefix);
             has_path_filter = true;
         }
 
-        if let Some(exts) = args.extensions {
+        if let Some(exts) = extensions {
             if !exts.is_empty() {
                 path_filter = path_filter.with_extensions(exts);
                 has_path_filter = true;
@@ -83,10 +128,32 @@ impl SearchTool {
             query = query.with_path_filter(path_filter);
         }
 
-        if let Some(mimes) = args.mime_types {
+        let mut meta_filter = MetadataFilter::new();
+        let mut has_meta_filter = false;
+
+        if let Some(mimes) = mime_types {
             if !mimes.is_empty() {
-                query = query.with_metadata_filter(MetadataFilter::new().with_mime_types(mimes));
+                meta_filter = meta_filter.with_mime_types(mimes);
+                has_meta_filter = true;
             }
+        }
+
+        if let Some(ref f) = args.filters {
+            let min_mod: Option<DateTime<Utc>> = f.modified_after.as_ref().and_then(|s| {
+                DateTime::parse_from_rfc3339(s).map(|dt| dt.with_timezone(&Utc)).ok()
+            });
+            let max_mod: Option<DateTime<Utc>> = f.modified_before.as_ref().and_then(|s| {
+                DateTime::parse_from_rfc3339(s).map(|dt| dt.with_timezone(&Utc)).ok()
+            });
+
+            if min_mod.is_some() || max_mod.is_some() {
+                meta_filter = meta_filter.with_time_range(min_mod, max_mod);
+                has_meta_filter = true;
+            }
+        }
+
+        if has_meta_filter {
+            query = query.with_metadata_filter(meta_filter);
         }
 
         if let Some(engine) = hybrid_engine {

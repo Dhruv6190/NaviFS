@@ -13,7 +13,7 @@ pub mod traits;
 // Convenient flat re-exports
 pub use config::{DatabaseConfig, EngineConfig, IndexingConfig, McpConfig, WatchDirectoryConfig};
 pub use error::{NaviError, Result};
-pub use event::{ChangeKind, FsEvent, IndexEvent};
+pub use event::{ChangeKind, FileTemporalEvent, FsEvent, IndexEvent};
 pub use foundation::{ByteRange, ContentHash, IndexLocator, LineRange, MimeType, PageRange, PathFingerprint};
 pub use identity::{
     ChunkId, ChunkType, EmbeddingId, EmbeddingRecord, EntityId, EntityNode, EntityType, FileChunk,

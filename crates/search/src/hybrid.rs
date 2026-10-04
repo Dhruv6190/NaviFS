@@ -49,11 +49,31 @@ impl HybridSearchEngine {
             }
         };
 
-        // 3. Channel C: Optional Inverted-Index Hits (empty for pure SQLite backend)
-        let lexical_hits: Vec<SearchHit> = Vec::new();
+        // 3. Channel C: Vector Semantic Search Hits (§8.2 & §17)
+        let semantic_hits: Vec<SearchHit> = if let (Some(ref q_vec), Some(ref model)) = (&query.query_vector, &query.vector_model) {
+            match self.db.find_nearest_neighbors(q_vec, model, fetch_limit).await {
+                Ok(matches) => matches
+                    .into_iter()
+                    .map(|m| SearchHit {
+                        chunk_id: m.chunk_id.map(|c| *c.as_uuid()).unwrap_or_else(uuid::Uuid::nil),
+                        file_id: *m.file_id.as_uuid(),
+                        score: m.similarity,
+                        content: String::new(),
+                        path: String::new(),
+                        chunk_index: 0,
+                    })
+                    .collect(),
+                Err(e) => {
+                    debug!("Vector similarity search error: {}", e);
+                    Vec::new()
+                }
+            }
+        } else {
+            Vec::new()
+        };
 
-        // 4. Aggressive Local Rank Fusion across channels
-        let fused_candidates = self.rank_fusion.fuse(&content_hits, &path_hits, &lexical_hits);
+        // 4. Aggressive Local Rank Fusion across channels (Content + Path + Vector Semantic)
+        let fused_candidates = self.rank_fusion.fuse(&content_hits, &path_hits, &semantic_hits);
 
         if fused_candidates.is_empty() {
             info!("Hybrid search for '{}' yielded 0 candidates before filtering", query.query);

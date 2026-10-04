@@ -7,8 +7,8 @@ pub mod repository;
 
 pub use migrations::run_migrations;
 pub use repository::{
-    ChunkRepository, EmbeddingRepository, FileRepository, FtsRepository, FtsSearchResult,
-    RelationRepository, VectorMatch,
+    ChunkRepository, EmbeddingRepository, EventRepository, FileRepository, FtsRepository,
+    FtsSearchResult, RelationRepository, VectorMatch,
 };
 
 use std::path::{Path, PathBuf};
@@ -18,7 +18,7 @@ use rusqlite::Connection;
 use tracing::info;
 use navifs_core::{
     ChunkId, DatabaseStore, EmbeddingRecord, EntityId, EntityNode, FileChunk, FileId, FileIdentity,
-    NaviError, RelationEdge, Result,
+    FileTemporalEvent, NaviError, RelationEdge, Result,
 };
 
 /// High-performance thread-safe SQLite database manager for NaviFS
@@ -294,6 +294,29 @@ impl DatabaseStore for SqliteDatabase {
         .await
         .map_err(|e| NaviError::Internal(e.to_string()))?
     }
+
+    // Temporal Event operations (§13 & §17.1)
+    async fn record_event(&self, event: &FileTemporalEvent) -> Result<()> {
+        let conn = self.conn.clone();
+        let event = event.clone();
+        tokio::task::spawn_blocking(move || {
+            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            EventRepository::record(&conn, &event)
+        })
+        .await
+        .map_err(|e| NaviError::Internal(e.to_string()))?
+    }
+
+    async fn get_events_for_file(&self, file_id: &FileId, limit: usize) -> Result<Vec<FileTemporalEvent>> {
+        let conn = self.conn.clone();
+        let file_id = *file_id;
+        tokio::task::spawn_blocking(move || {
+            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            EventRepository::get_for_file(&conn, &file_id, limit)
+        })
+        .await
+        .map_err(|e| NaviError::Internal(e.to_string()))?
+    }
 }
 
 #[cfg(test)]
@@ -344,5 +367,16 @@ mod tests {
         let matches = db.find_nearest_neighbors(&query_vec, "text-embedding-3-small", 5).await.expect("Vector search failed");
         assert_eq!(matches.len(), 1);
         assert!((matches[0].similarity - 1.0).abs() < 1e-4);
+
+        // 6. Test temporal event logging (§13 & §17.1)
+        let evt1 = FileTemporalEvent::new(file.id, "created", "scanner", Some(serde_json::json!({ "size": 2048 })));
+        let evt2 = FileTemporalEvent::new(file.id, "indexed", "pipeline", None);
+        db.record_event(&evt1).await.expect("Failed to record evt1");
+        db.record_event(&evt2).await.expect("Failed to record evt2");
+
+        let events = db.get_events_for_file(&file.id, 10).await.expect("Failed to get events");
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[0].event_type, "indexed");
+        assert_eq!(events[1].event_type, "created");
     }
 }

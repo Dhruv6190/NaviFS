@@ -19,6 +19,22 @@ pub struct EntitySummary {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct DocumentStructure {
+    pub kind: String,
+    pub sheets: Option<Vec<String>>,
+    pub sections: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FileEventSummary {
+    pub id: String,
+    pub event_type: String,
+    pub timestamp: String,
+    pub source: String,
+    pub metadata: Value,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct MetadataSummary {
     pub file_id: FileId,
     pub path: String,
@@ -34,6 +50,8 @@ pub struct MetadataSummary {
     pub page_count: Option<usize>,
     pub line_count: Option<usize>,
     pub outline: Vec<EntitySummary>,
+    pub structure: Option<DocumentStructure>,
+    pub recent_events: Vec<FileEventSummary>,
 }
 
 pub struct InspectTool;
@@ -103,6 +121,43 @@ impl InspectTool {
             .await
             .unwrap_or_default();
 
+        // 3. Compute structural taxonomy (§7.4)
+        let structure = if file.mime_type.is_spreadsheet() {
+            let sheets: Vec<String> = entities
+                .iter()
+                .filter(|e| e.properties.get("sheet").is_some() || e.entity_type == EntityType::Heading)
+                .map(|e| e.name.clone())
+                .collect();
+            Some(DocumentStructure {
+                kind: "spreadsheet".to_string(),
+                sheets: Some(sheets),
+                sections: None,
+            })
+        } else if file.mime_type.is_docx() || file.mime_type.is_markdown() {
+            let sections: Vec<String> = entities
+                .iter()
+                .filter(|e| e.entity_type == EntityType::Heading)
+                .map(|e| e.name.clone())
+                .collect();
+            Some(DocumentStructure {
+                kind: "document".to_string(),
+                sheets: None,
+                sections: Some(sections),
+            })
+        } else if file.mime_type.is_code() {
+            let symbols: Vec<String> = entities
+                .iter()
+                .map(|e| format!("{:?}: {}", e.entity_type, e.name))
+                .collect();
+            Some(DocumentStructure {
+                kind: "code".to_string(),
+                sheets: None,
+                sections: Some(symbols),
+            })
+        } else {
+            None
+        };
+
         let outline = entities
             .into_iter()
             .map(|e| EntitySummary {
@@ -110,6 +165,23 @@ impl InspectTool {
                 name: e.name,
                 entity_type: e.entity_type,
                 properties: e.properties,
+            })
+            .collect();
+
+        // 4. Retrieve recent temporal lifecycle events (§13 & §17.1)
+        let raw_events = db.get_events_for_file(&file.id, 10).await.unwrap_or_default();
+        let recent_events = raw_events
+            .into_iter()
+            .map(|ev| {
+                let metadata: Value = serde_json::from_str(&ev.metadata)
+                    .unwrap_or_else(|_| serde_json::json!({}));
+                FileEventSummary {
+                    id: ev.id,
+                    event_type: ev.event_type,
+                    timestamp: ev.timestamp.to_rfc3339(),
+                    source: ev.source,
+                    metadata,
+                }
             })
             .collect();
 
@@ -128,6 +200,8 @@ impl InspectTool {
             page_count: max_page,
             line_count: max_line,
             outline,
+            structure,
+            recent_events,
         })
     }
 }

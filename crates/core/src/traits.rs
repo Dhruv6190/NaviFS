@@ -1,6 +1,7 @@
 use std::path::Path;
 use async_trait::async_trait;
 use crate::error::Result;
+use crate::event::FileTemporalEvent;
 use crate::identity::{
     chunk::{ChunkId, FileChunk},
     entity::{EntityId, EntityNode},
@@ -59,6 +60,10 @@ pub trait DatabaseStore: Send + Sync {
     // Relation operations
     async fn save_relations(&self, relations: &[RelationEdge]) -> Result<()>;
     async fn get_relations_for_entity(&self, entity_id: &EntityId) -> Result<Vec<RelationEdge>>;
+
+    // Temporal Event operations (§13 & §17.1)
+    async fn record_event(&self, event: &FileTemporalEvent) -> Result<()>;
+    async fn get_events_for_file(&self, file_id: &FileId, limit: usize) -> Result<Vec<FileTemporalEvent>>;
 }
 
 /// Search engine interface providing lexical, vector, and hybrid search

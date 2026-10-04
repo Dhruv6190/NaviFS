@@ -240,6 +240,8 @@ pub struct HybridSearchQuery {
     pub metadata_filter: Option<MetadataFilter>,
     pub limit: usize,
     pub weights: RerankerWeights,
+    pub query_vector: Option<Vec<f32>>,
+    pub vector_model: Option<String>,
 }
 
 impl HybridSearchQuery {
@@ -250,6 +252,8 @@ impl HybridSearchQuery {
             metadata_filter: None,
             limit: 10,
             weights: RerankerWeights::default(),
+            query_vector: None,
+            vector_model: None,
         }
     }
 
@@ -270,6 +274,12 @@ impl HybridSearchQuery {
 
     pub fn with_weights(mut self, weights: RerankerWeights) -> Self {
         self.weights = weights;
+        self
+    }
+
+    pub fn with_vector(mut self, vector: Vec<f32>, model: impl Into<String>) -> Self {
+        self.query_vector = Some(vector);
+        self.vector_model = Some(model.into());
         self
     }
 }

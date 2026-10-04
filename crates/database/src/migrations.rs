@@ -22,6 +22,11 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "0002_fts5_search",
         sql: include_str!("../migrations/0002_fts5_search.sql"),
     },
+    Migration {
+        version: 3,
+        name: "0003_events_history",
+        sql: include_str!("../migrations/0003_events_history.sql"),
+    },
 ];
 
 pub fn run_migrations(conn: &mut Connection) -> Result<()> {

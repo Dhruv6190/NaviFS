@@ -255,4 +255,42 @@ mod tests {
         assert_eq!(top.evidence.line_range.unwrap().end_line, 50);
         assert!(top.evidence.locator_summary.contains("Lines 20-50"));
     }
+
+    #[tokio::test]
+    async fn test_hybrid_search_with_vector_channel() {
+        let db = Arc::new(SqliteDatabase::in_memory().expect("Failed in-memory DB"));
+        db.initialize().await.expect("Migrations failed");
+
+        let path = Path::new("crates/core/src/vector_test.rs");
+        let mut file = FileIdentity::new(path, 1024, chrono::Utc::now());
+        file = file.with_hash(ContentHash::from_bytes(b"vector test"));
+        db.upsert_file(&file).await.unwrap();
+
+        let chunk = FileChunk::new(
+            file.id,
+            0,
+            ChunkType::CodeBlock { language: "rust".to_string() },
+            ByteRange::new(0, 100),
+            Some(LineRange::new(1, 10)),
+            "fn vector_search() {}".to_string(),
+        );
+        db.save_chunks(&[chunk.clone()]).await.unwrap();
+
+        let embedding = navifs_core::EmbeddingRecord::new(
+            file.id,
+            Some(chunk.id),
+            "text-embedding-3-small",
+            vec![0.5, 0.5, 0.5, 0.5],
+        );
+        db.save_embeddings(&[embedding]).await.unwrap();
+
+        let engine = HybridSearchEngine::new(db);
+        let query = HybridSearchQuery::new("vector_search")
+            .with_vector(vec![0.5, 0.5, 0.5, 0.5], "text-embedding-3-small")
+            .with_limit(5);
+
+        let results = engine.search_hybrid(query).await.unwrap();
+        assert!(!results.is_empty());
+        assert_eq!(results[0].file_id, file.id);
+    }
 }

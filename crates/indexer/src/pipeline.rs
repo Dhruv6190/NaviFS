@@ -5,7 +5,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc::Receiver;
 use tracing::{debug, info, warn};
 use navifs_core::{
-    ContentHash, DatabaseStore, FileIdentity, NaviError, Result, SearchProvider,
+    ContentHash, DatabaseStore, FileIdentity, FileTemporalEvent, NaviError, Result, SearchProvider,
 };
 use navifs_extract::ExtractorRegistry;
 use crate::watcher::FsChangeEvent;
@@ -46,20 +46,49 @@ impl IndexingPipeline {
         identity = identity.with_hash(current_hash.clone());
 
         // Check if existing file has identical SHA-256 hash
-        if let Some(existing) = self.db.get_file_by_path(identity.fingerprint.as_str()).await? {
-            if let Some(ref prev_hash) = existing.content_hash {
-                if prev_hash == &current_hash && existing.size_bytes == metadata.len() {
-                    debug!("File SHA-256 matches database record, skipping: {:?}", path);
-                    return Ok(existing);
+        let is_new = match self.db.get_file_by_path(identity.fingerprint.as_str()).await? {
+            Some(existing) => {
+                if let Some(ref prev_hash) = existing.content_hash {
+                    if prev_hash == &current_hash && existing.size_bytes == metadata.len() {
+                        debug!("File SHA-256 matches database record, skipping: {:?}", path);
+                        return Ok(existing);
+                    }
                 }
+                identity.id = existing.id;
+                false
             }
-            identity.id = existing.id;
+            None => true,
+        };
+
+        // Record creation or modification lifecycle event (§13 & §17.1)
+        if is_new {
+            let evt = FileTemporalEvent::new(
+                identity.id,
+                "created",
+                "scanner",
+                Some(serde_json::json!({
+                    "size_bytes": identity.size_bytes,
+                    "mime_type": identity.mime_type.as_str(),
+                })),
+            );
+            let _ = self.db.record_event(&evt).await;
+        } else {
+            let evt = FileTemporalEvent::new(
+                identity.id,
+                "modified",
+                "watcher",
+                Some(serde_json::json!({
+                    "size_bytes": identity.size_bytes,
+                    "mime_type": identity.mime_type.as_str(),
+                })),
+            );
+            let _ = self.db.record_event(&evt).await;
         }
 
         // Upsert preliminary file record
         self.db.upsert_file(&identity).await?;
 
-        // Run multi-modal extraction (plain text, markdown, json, pdf)
+        // Run multi-modal extraction (plain text, markdown, json, pdf, xlsx, docx)
         let extraction = self.registry.extract_file(&identity, path).await?;
         info!(
             "Extracted {:?} ({} chunks, {} entities, {} relations)",
@@ -88,6 +117,18 @@ impl IndexingPipeline {
         identity.mark_indexed();
         self.db.upsert_file(&identity).await?;
 
+        // Record indexed event
+        let index_evt = FileTemporalEvent::new(
+            identity.id,
+            "indexed",
+            "pipeline",
+            Some(serde_json::json!({
+                "chunks_count": extraction.chunks.len(),
+                "entities_count": extraction.entities.len(),
+            })),
+        );
+        let _ = self.db.record_event(&index_evt).await;
+
         Ok(identity)
     }
 
@@ -95,6 +136,14 @@ impl IndexingPipeline {
     pub async fn handle_deletion(&self, path: &Path) -> Result<()> {
         let path_str = path.to_string_lossy();
         if let Some(existing) = self.db.get_file_by_path(&path_str).await? {
+            let del_evt = FileTemporalEvent::new(
+                existing.id,
+                "deleted",
+                "watcher",
+                Some(serde_json::json!({ "path": path_str.to_string() })),
+            );
+            let _ = self.db.record_event(&del_evt).await;
+
             self.search.remove_file_from_index(&existing.id).await?;
             self.db.delete_chunks_for_file(&existing.id).await?;
             self.db.delete_file(&existing.id).await?;

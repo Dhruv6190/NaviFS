@@ -55,3 +55,34 @@ pub enum IndexEvent {
         error: String,
     },
 }
+
+/// Persistent temporal event record stored in SQLite for auditing and time-travel queries (§13 & §17.1)
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileTemporalEvent {
+    pub id: String,
+    pub file_id: FileId,
+    pub event_type: String,
+    pub timestamp: DateTime<Utc>,
+    pub source: String,
+    pub metadata: String,
+}
+
+impl FileTemporalEvent {
+    pub fn new(
+        file_id: FileId,
+        event_type: impl Into<String>,
+        source: impl Into<String>,
+        metadata: Option<serde_json::Value>,
+    ) -> Self {
+        Self {
+            id: uuid::Uuid::new_v4().to_string(),
+            file_id,
+            event_type: event_type.into(),
+            timestamp: Utc::now(),
+            source: source.into(),
+            metadata: metadata
+                .map(|v| v.to_string())
+                .unwrap_or_else(|| "{}".to_string()),
+        }
+    }
+}
