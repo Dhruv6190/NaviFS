@@ -2,6 +2,8 @@
 //!
 //! Entry point for indexing local file systems and exposing them via Model Context Protocol (MCP).
 
+pub mod setup;
+
 use std::path::PathBuf;
 use std::sync::Arc;
 use clap::{Parser, Subcommand};
@@ -61,6 +63,17 @@ enum Commands {
         #[arg(short, long, help = "Directory to watch and index")]
         watch: Option<PathBuf>,
     },
+
+    /// Automatically configure NaviFS for installed AI agents (Claude, Cursor, Antigravity, Windsurf, VS Code)
+    Setup {
+        /// Automatically configure all detected AI agents without prompting
+        #[arg(short, long)]
+        all: bool,
+
+        /// Target client to configure: claude, cursor, antigravity, windsurf, vscode
+        #[arg(short, long)]
+        client: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -73,6 +86,10 @@ async fn main() -> anyhow::Result<()> {
         (false, Some(cmd)) => cmd,
         (false, None) => Commands::Mcp { path: None },
     };
+
+    if let Commands::Setup { all, client } = command {
+        return setup::run_setup(all, client);
+    }
 
     // Check if we are running MCP mode - if so, suppress stdout logs to avoid corrupting JSON-RPC
     let is_mcp = matches!(command, Commands::Mcp { .. });
@@ -205,6 +222,8 @@ async fn main() -> anyhow::Result<()> {
                 .with_hybrid_engine(hybrid_search);
             mcp_server.run_stdio().await?;
         }
+
+        Commands::Setup { .. } => unreachable!(),
     }
 
     Ok(())

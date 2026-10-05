@@ -77,13 +77,20 @@
         </a>
       </div>
 
-      <div class="terminal-copy-bar" onclick="copySnippet('cmd-install', this)">
-        <span class="terminal-prompt">$</span>
-        <span class="terminal-cmd" id="cmd-install">cargo install navifs-daemon</span>
-        <svg class="terminal-copy-icon" viewBox="0 0 24 24">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-        </svg>
+      <div class="hero-install-container">
+        <div class="install-segmented-control">
+          <button class="install-segment-btn active" data-platform="windows">Windows</button>
+          <button class="install-segment-btn" data-platform="unix">macOS / Linux</button>
+          <button class="install-segment-btn" data-platform="cli">Direct CLI</button>
+        </div>
+        <div class="terminal-copy-bar" id="hero-copy-bar" onclick="copyCurrentInstallSnippet(this)">
+          <span class="terminal-prompt">$</span>
+          <span class="terminal-cmd" id="cmd-install">powershell -ExecutionPolicy Bypass -File .\install.ps1</span>
+          <svg class="terminal-copy-icon" viewBox="0 0 24 24">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+        </div>
       </div>
     </section>
 
@@ -182,7 +189,23 @@ Supported Formats: .rs .py .ts .js .md .json .pdf .xlsx .xls .docx .txt .csv
       <div class="section-header">
         <div class="section-label">Seamless Agent Hookup</div>
         <h2 class="section-title">Connect Any Model Context Protocol Host</h2>
-        <p class="section-desc">One command attaches NaviFS to Claude Desktop, Cursor IDE, Windsurf, Antigravity, or custom agent runtimes over standard JSON-RPC 2.0 stdio.</p>
+        <p class="section-desc">One command attaches NaviFS to Claude Desktop, Cursor IDE, Windsurf, Antigravity, VS Code, or custom agent runtimes over standard JSON-RPC 2.0 stdio.</p>
+      </div>
+
+      <!-- Auto-Setup Callout -->
+      <div class="auto-setup-callout">
+        <div class="callout-icon-box">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2997ff" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
+        <div class="callout-content">
+          <div class="callout-title">Instant 1-Click Auto-Configuration Available</div>
+          <div class="callout-text">Skip manual JSON editing. Run <code>navifs setup</code> in your terminal to automatically detect and configure all your installed AI IDEs with zero configuration drift.</div>
+        </div>
+        <button class="callout-copy-btn" onclick="copySnippetText('navifs setup', this)">
+          <span>Copy Command</span>
+        </button>
       </div>
 
       <div class="integration-box">
@@ -202,6 +225,10 @@ Supported Formats: .rs .py .ts .js .md .json .pdf .xlsx .xls .docx .txt .csv
           <button class="tab-btn" data-tab="windsurf">
             <svg class="tab-icon" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
             <span>Windsurf</span>
+          </button>
+          <button class="tab-btn" data-tab="vscode">
+            <svg class="tab-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><polyline points="9 9 12 12 9 15"></polyline></svg>
+            <span>VS Code (Cline)</span>
           </button>
           <button class="tab-btn" data-tab="cli">
             <svg class="tab-icon" viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"></polyline><line x1="9" y1="20" x2="15" y2="20"></line><line x1="12" y1="4" x2="12" y2="20"></line></svg>
@@ -226,7 +253,7 @@ Supported Formats: .rs .py .ts .js .md .json .pdf .xlsx .xls .docx .txt .csv
   "mcpServers": {
     "navifs": {
       "command": "navifs",
-      "args": ["mcp", "--path", "C:\\Users\\username\\Projects"]
+      "args": ["mcp"]
     }
   }
 }</code></pre>
@@ -246,7 +273,7 @@ Supported Formats: .rs .py .ts .js .md .json .pdf .xlsx .xls .docx .txt .csv
             </div>
             <pre class="code-window" id="code-cursor"><code>Name: navifs
 Type: command
-Command: navifs mcp --path .</code></pre>
+Command: navifs mcp</code></pre>
           </div>
 
           <!-- Antigravity IDE Pane -->
@@ -265,7 +292,7 @@ Command: navifs mcp --path .</code></pre>
   "mcpServers": {
     "navifs": {
       "command": "navifs",
-      "args": ["mcp", "--path", "."]
+      "args": ["mcp"]
     }
   }
 }</code></pre>
@@ -287,7 +314,29 @@ Command: navifs mcp --path .</code></pre>
   "mcpServers": {
     "navifs": {
       "command": "navifs",
-      "args": ["mcp", "--path", "."]
+      "args": ["mcp"]
+    }
+  }
+}</code></pre>
+          </div>
+
+          <!-- VS Code (Cline) Pane -->
+          <div class="tab-pane" data-pane="vscode">
+            <div class="pane-header">
+              <div class="pane-meta">
+                <div class="pane-title">VS Code (Cline / Roo Code) MCP Settings</div>
+                <div class="pane-path">cline_mcp_settings.json</div>
+              </div>
+              <button class="btn-copy-code" onclick="copySnippet('code-vscode', this)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <span>Copy JSON</span>
+              </button>
+            </div>
+            <pre class="code-window" id="code-vscode"><code>{
+  "mcpServers": {
+    "navifs": {
+      "command": "navifs",
+      "args": ["mcp"]
     }
   }
 }</code></pre>
@@ -305,8 +354,11 @@ Command: navifs mcp --path .</code></pre>
                 <span>Copy CLI</span>
               </button>
             </div>
-            <pre class="code-window" id="code-cli"><code># Spawn MCP JSON-RPC 2.0 stdio server
-navifs mcp --path /path/to/project
+            <pre class="code-window" id="code-cli"><code># 1-Click Interactive setup for all installed AI IDEs
+navifs setup
+
+# Spawn MCP JSON-RPC 2.0 stdio server
+navifs mcp
 
 # Execute direct hybrid search from terminal
 navifs search "RecursiveScanner" --limit 5</code></pre>
@@ -520,15 +572,43 @@ navifs search "RecursiveScanner" --limit 5</code></pre>
 
       <!-- DOC ARTICLE 2: Installation -->
       <article class="doc-article" data-doc-id="installation" style="display: none;">
-        <h1 class="doc-article-title">Installation & Build Guide</h1>
+        <h1 class="doc-article-title">1-Click Plug &amp; Play Installation</h1>
         <p class="doc-article-lead">
-          Building and running the NaviFS workspace from source using Cargo.
+          Install the pre-compiled NaviFS engine and automatically configure all your AI IDEs with zero manual configuration.
         </p>
 
         <section class="doc-section">
-          <h2 class="doc-section-title">Prerequisites</h2>
+          <h2 class="doc-section-title">Quick Install</h2>
           <p class="doc-paragraph">
-            NaviFS is built with modern Rust (edition 2021). You will need:
+            Run the 1-click installer for your operating system. It installs the <span class="doc-code-inline">navifs</span> binary to <span class="doc-code-inline">~/.navifs/bin</span>, adds it to your user <span class="doc-code-inline">PATH</span>, and launches the interactive auto-configurator.
+          </p>
+
+          <h3 style="font-size: 16px; margin: 16px 0 8px; color: #ffffff;">Windows (PowerShell)</h3>
+          <pre class="code-window"><code>powershell -ExecutionPolicy Bypass -File .\install.ps1
+
+# Or automated non-interactive install:
+powershell -ExecutionPolicy Bypass -File .\install.ps1 -All</code></pre>
+
+          <h3 style="font-size: 16px; margin: 20px 0 8px; color: #ffffff;">macOS &amp; Linux (Bash / Zsh)</h3>
+          <pre class="code-window"><code>./install.sh</code></pre>
+
+          <h2 class="doc-section-title">Interactive Auto-Configurator</h2>
+          <p class="doc-paragraph">
+            Once installed, run <span class="doc-code-inline">navifs setup</span> at any time to reconfigure or connect newly installed AI agents:
+          </p>
+          <pre class="code-window"><code># Interactive terminal selection
+navifs setup
+
+# Automated: configure all detected clients without prompt
+navifs setup --all
+
+# Target a specific client
+navifs setup --client claude
+navifs setup --client cursor</code></pre>
+
+          <h2 class="doc-section-title">Building From Source (Optional)</h2>
+          <p class="doc-paragraph">
+            For core contributors who wish to compile from the Rust multi-crate workspace:
           </p>
           <div class="doc-table-wrapper">
             <table class="doc-table">
@@ -543,12 +623,12 @@ navifs search "RecursiveScanner" --limit 5</code></pre>
                 <tr>
                   <td>Windows</td>
                   <td>Rust 1.80+ (MSVC or x86_64-pc-windows-gnu with TDM-GCC-64)</td>
-                  <td>Lock dlltool in <span class="doc-code-inline">.cargo/config.toml</span></td>
+                  <td>Included <span class="doc-code-inline">libgcc_eh.a</span> stub for GNU linkers</td>
                 </tr>
                 <tr>
                   <td>macOS</td>
-                  <td>Apple Clang & Xcode Command Line Tools</td>
-                  <td>Apple Silicon (M1/M2/M3) and Intel supported</td>
+                  <td>Apple Clang &amp; Xcode Command Line Tools</td>
+                  <td>Apple Silicon (M1/M2/M3/M4) and Intel x86_64</td>
                 </tr>
                 <tr>
                   <td>Linux</td>
@@ -559,35 +639,45 @@ navifs search "RecursiveScanner" --limit 5</code></pre>
             </table>
           </div>
 
-          <h2 class="doc-section-title">Compiling the Workspace</h2>
           <pre class="code-window"><code># Clone repository
 git clone https://github.com/Dhruv6190/NaviFS.git
 cd NaviFS
 
 # Compile release binaries
-cargo build --release
+cargo build --release -p navifs-daemon
 
-# Run the 24-test suite (including eval harness)
+# Run workspace tests
 cargo test --workspace</code></pre>
         </section>
       </article>
 
       <!-- DOC ARTICLE 3: MCP Setup -->
       <article class="doc-article" data-doc-id="mcp-setup" style="display: none;">
-        <h1 class="doc-article-title">MCP Host Integration</h1>
+        <h1 class="doc-article-title">Model Context Protocol Host Integration</h1>
         <p class="doc-article-lead">
-          Hooking NaviFS into Claude Desktop, Cursor, and custom agent hosts via stdio.
+          Universal stdio integration across Claude Desktop, Cursor, Antigravity, Windsurf, and VS Code.
         </p>
 
         <section class="doc-section">
-          <h2 class="doc-section-title">Protocol Specification</h2>
+          <h2 class="doc-section-title">Zero Configuration Drift</h2>
           <p class="doc-paragraph">
-            NaviFS implements the Model Context Protocol over standard input/output (<span class="doc-code-inline">stdio</span>). It handles JSON-RPC 2.0 messages framed by newline delimiters.
+            NaviFS adheres strictly to the official Model Context Protocol (MCP 2024-11-05). Because the <span class="doc-code-inline">navifs</span> executable is added to your user <span class="doc-code-inline">PATH</span>, you never need complex absolute paths in client JSON configurations.
           </p>
+
+          <h2 class="doc-section-title">Standard Client Configuration Schema</h2>
+          <pre class="code-window"><code>{
+  "mcpServers": {
+    "navifs": {
+      "command": "navifs",
+      "args": ["mcp"]
+    }
+  }
+}</code></pre>
+
           <div class="doc-callout">
-            <div class="doc-callout-title">Automatic Server Instructions</div>
+            <div class="doc-callout-title">Automatic Server Handshake &amp; Prompts</div>
             <div class="doc-callout-body">
-              During the MCP <span class="doc-code-inline">initialize</span> handshake, NaviFS automatically sends system prompts to the agent instructing it to avoid unbounded retrievals and use <span class="doc-code-inline">search -> inspect -> open</span> pipelines.
+              During the MCP <span class="doc-code-inline">initialize</span> handshake, NaviFS automatically sends system prompts to the agent instructing it to avoid unbounded retrievals and use <span class="doc-code-inline">search -&gt; inspect -&gt; open</span> pipelines.
             </div>
           </div>
         </section>
