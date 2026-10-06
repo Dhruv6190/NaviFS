@@ -1,9 +1,9 @@
 //! `related` tool: One-to-one hop graph relationship traversal discovering adjacent nodes and directional edges.
 
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use navifs_core::{DatabaseStore, EntityId, EntityNode, FileId, RelationId, RelationType};
 use navifs_graph::KnowledgeGraph;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Debug, Deserialize)]
 pub struct RelatedArgs {
@@ -57,7 +57,8 @@ impl RelatedTool {
                         "type": "string",
                         "description": "Optional filter for specific relation type (e.g. 'Contains', 'References', 'Imports', 'Defines', 'ParentOf', 'ChildOf')"
                     }
-                }
+                },
+                "required": []
             }
         })
     }
@@ -79,10 +80,14 @@ impl RelatedTool {
             }
         } else if let Some(ref fid_str) = args.file_id {
             let fid = FileId::parse(fid_str).map_err(|e| format!("Invalid file_id: {}", e))?;
-            let entities = db.get_entities_for_file(&fid).await.map_err(|e| e.to_string())?;
-            entities.into_iter().next().ok_or_else(|| {
-                format!("No entities found for file_id '{}'", fid_str)
-            })?
+            let entities = db
+                .get_entities_for_file(&fid)
+                .await
+                .map_err(|e| e.to_string())?;
+            entities
+                .into_iter()
+                .next()
+                .ok_or_else(|| format!("No entities found for file_id '{}'", fid_str))?
         } else if let Some(ref path_str) = args.path {
             let file = db
                 .get_file_by_path(path_str)
@@ -90,10 +95,14 @@ impl RelatedTool {
                 .map_err(|e| e.to_string())?
                 .ok_or_else(|| format!("File with path '{}' not found", path_str))?;
 
-            let entities = db.get_entities_for_file(&file.id).await.map_err(|e| e.to_string())?;
-            entities.into_iter().next().ok_or_else(|| {
-                format!("No entities found for file '{}'", path_str)
-            })?
+            let entities = db
+                .get_entities_for_file(&file.id)
+                .await
+                .map_err(|e| e.to_string())?;
+            entities
+                .into_iter()
+                .next()
+                .ok_or_else(|| format!("No entities found for file '{}'", path_str))?
         } else {
             return Err("Must provide either 'entity_id', 'file_id', or 'path'".to_string());
         };
@@ -116,9 +125,7 @@ impl RelatedTool {
 
         // 3. Optional filter by relation_type
         if let Some(ref rel_filter) = args.relation_type {
-            edges.retain(|e| {
-                format!("{:?}", e.relation_type).eq_ignore_ascii_case(rel_filter)
-            });
+            edges.retain(|e| format!("{:?}", e.relation_type).eq_ignore_ascii_case(rel_filter));
         }
 
         let mut outgoing = Vec::new();

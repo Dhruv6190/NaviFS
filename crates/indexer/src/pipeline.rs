@@ -1,20 +1,25 @@
 //! Indexing pipeline orchestrating scanner, watcher, extraction, and database persistence
 
+use crate::watcher::FsChangeEvent;
+use navifs_core::{
+    ContentHash, DatabaseStore, Embedder, EmbeddingRecord, FileChunk, FileId, FileIdentity,
+    FileTemporalEvent, NaviError, Result, SearchProvider,
+};
+use navifs_extract::ExtractorRegistry;
 use std::path::Path;
 use std::sync::Arc;
 use tokio::sync::mpsc::Receiver;
 use tracing::{debug, info, warn};
-use navifs_core::{
-    ContentHash, DatabaseStore, FileIdentity, FileTemporalEvent, NaviError, Result, SearchProvider,
-};
-use navifs_extract::ExtractorRegistry;
-use crate::watcher::FsChangeEvent;
+
+/// Number of chunks embedded and persisted per round trip, bounding peak memory on huge files
+const EMBED_GROUP_SIZE: usize = 64;
 
 /// Main pipeline coordinator that runs extraction and writes to database and search indices
 pub struct IndexingPipeline {
     db: Arc<dyn DatabaseStore>,
     search: Arc<dyn SearchProvider>,
     registry: Arc<ExtractorRegistry>,
+    embedder: Option<Arc<dyn Embedder>>,
 }
 
 impl IndexingPipeline {
@@ -27,7 +32,43 @@ impl IndexingPipeline {
             db,
             search,
             registry,
+            embedder: None,
         }
+    }
+
+    /// Enables semantic indexing: every chunk is embedded and its vector persisted
+    pub fn with_embedder(mut self, embedder: Arc<dyn Embedder>) -> Self {
+        self.embedder = Some(embedder);
+        self
+    }
+
+    /// Embeds `chunks` and persists the vectors in bounded groups
+    async fn embed_chunks(&self, file_id: FileId, chunks: &[FileChunk]) -> Result<()> {
+        let Some(embedder) = &self.embedder else {
+            return Ok(());
+        };
+
+        for group in chunks.chunks(EMBED_GROUP_SIZE) {
+            let texts: Vec<String> = group.iter().map(|c| c.content.clone()).collect();
+            let vectors = embedder.embed_documents(&texts).await?;
+            if vectors.len() != group.len() {
+                return Err(NaviError::Embedding(format!(
+                    "embedder returned {} vectors for {} chunks",
+                    vectors.len(),
+                    group.len()
+                )));
+            }
+
+            let records: Vec<EmbeddingRecord> = group
+                .iter()
+                .zip(vectors)
+                .map(|(chunk, vector)| {
+                    EmbeddingRecord::new(file_id, Some(chunk.id), embedder.model_id(), vector)
+                })
+                .collect();
+            self.db.save_embeddings(&records).await?;
+        }
+        Ok(())
     }
 
     /// Process a single file: read bytes, compute SHA-256, extract chunks/entities, and save
@@ -35,7 +76,7 @@ impl IndexingPipeline {
         let metadata = tokio::fs::metadata(path).await.map_err(NaviError::Io)?;
         let modified = metadata
             .modified()
-            .map(|t| chrono::DateTime::<chrono::Utc>::from(t))
+            .map(chrono::DateTime::<chrono::Utc>::from)
             .unwrap_or_else(|_| chrono::Utc::now());
 
         let mut identity = FileIdentity::new(path, metadata.len(), modified);
@@ -46,11 +87,26 @@ impl IndexingPipeline {
         identity = identity.with_hash(current_hash.clone());
 
         // Check if existing file has identical SHA-256 hash
-        let is_new = match self.db.get_file_by_path(identity.fingerprint.as_str()).await? {
+        let is_new = match self
+            .db
+            .get_file_by_path(identity.fingerprint.as_str())
+            .await?
+        {
             Some(existing) => {
                 if let Some(ref prev_hash) = existing.content_hash {
                     if prev_hash == &current_hash && existing.size_bytes == metadata.len() {
                         debug!("File SHA-256 matches database record, skipping: {:?}", path);
+                        // Back-fill vectors for files indexed before semantic search was enabled
+                        if let Some(embedder) = &self.embedder {
+                            if !self
+                                .db
+                                .has_embeddings_for_file(&existing.id, embedder.model_id())
+                                .await?
+                            {
+                                let chunks = self.db.get_chunks_for_file(&existing.id).await?;
+                                self.embed_chunks(existing.id, &chunks).await?;
+                            }
+                        }
                         return Ok(existing);
                     }
                 }
@@ -104,6 +160,7 @@ impl IndexingPipeline {
             self.db.delete_chunks_for_file(&identity.id).await?;
             self.db.save_chunks(&extraction.chunks).await?;
             self.search.index_chunks(&extraction.chunks).await?;
+            self.embed_chunks(identity.id, &extraction.chunks).await?;
         }
 
         if !extraction.entities.is_empty() {
@@ -165,7 +222,10 @@ impl IndexingPipeline {
                     }
                 }
                 FsChangeEvent::Modified { path, new_hash } => {
-                    info!("Watcher detected modification: {:?} (SHA-256: {})", path, new_hash);
+                    info!(
+                        "Watcher detected modification: {:?} (SHA-256: {})",
+                        path, new_hash
+                    );
                     if let Err(e) = self.process_file(&path).await {
                         warn!("Failed processing modified file {:?}: {}", path, e);
                     }

@@ -1,9 +1,9 @@
 //! `open` tool: Bounded content range retrieval by lines, pages, byte offsets, or chunk index.
 
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use navifs_core::{ByteRange, ChunkId, DatabaseStore, FileChunk, FileId, LineRange, PageRange};
 use navifs_search::EvidenceBuilder;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Debug, Deserialize)]
 pub struct OpenArgs {
@@ -81,7 +81,8 @@ impl OpenTool {
                         "type": "integer",
                         "description": "Specific chunk index within the file"
                     }
-                }
+                },
+                "required": []
             }
         })
     }
@@ -118,7 +119,11 @@ impl OpenTool {
             if let Ok(raw) = tokio::fs::read_to_string(&path).await {
                 let lines: Vec<&str> = raw.lines().collect();
                 let start_l = args.start_line.unwrap_or(1).max(1);
-                let end_l = args.end_line.unwrap_or(lines.len()).min(lines.len()).max(start_l);
+                let end_l = args
+                    .end_line
+                    .unwrap_or(lines.len())
+                    .min(lines.len())
+                    .max(start_l);
 
                 let slice = if start_l <= lines.len() {
                     lines[start_l - 1..end_l].join("\n")
@@ -175,7 +180,10 @@ impl OpenTool {
                     chunks_included: vec![target.id],
                 });
             } else {
-                return Err(format!("Chunk index {} not found for file '{}'", c_idx, path));
+                return Err(format!(
+                    "Chunk index {} not found for file '{}'",
+                    c_idx, path
+                ));
             }
         }
 
@@ -196,18 +204,29 @@ impl OpenTool {
                 .collect();
 
             if !matching.is_empty() {
-                let combined_content = matching.iter().map(|c| c.content.as_str()).collect::<Vec<_>>().join("\n\n");
+                let combined_content = matching
+                    .iter()
+                    .map(|c| c.content.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n\n");
                 let min_byte = matching.first().map(|c| c.byte_range.start).unwrap_or(0);
                 let max_byte = matching.last().map(|c| c.byte_range.end).unwrap_or(0);
-                let min_line = matching.iter().filter_map(|c| c.line_range.map(|l| l.start_line)).min();
-                let max_line = matching.iter().filter_map(|c| c.line_range.map(|l| l.end_line)).max();
+                let min_line = matching
+                    .iter()
+                    .filter_map(|c| c.line_range.map(|l| l.start_line))
+                    .min();
+                let max_line = matching
+                    .iter()
+                    .filter_map(|c| c.line_range.map(|l| l.end_line))
+                    .max();
 
                 let line_range = match (min_line, max_line) {
                     (Some(s), Some(e)) => Some(LineRange::new(s, e)),
                     _ => None,
                 };
                 let page_range = Some(PageRange::new(start_p, end_p));
-                let locator = EvidenceBuilder::format_locator_summary(&filename, line_range, page_range);
+                let locator =
+                    EvidenceBuilder::format_locator_summary(&filename, line_range, page_range);
                 let resource_uri = format!("navifs://file/{}/pages/{}-{}", file.id, start_p, end_p);
 
                 return Ok(BoundedContentResponse {
@@ -245,7 +264,11 @@ impl OpenTool {
                 .collect();
 
             if !matching.is_empty() {
-                let combined_content = matching.iter().map(|c| c.content.as_str()).collect::<Vec<_>>().join("\n");
+                let combined_content = matching
+                    .iter()
+                    .map(|c| c.content.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n");
                 let min_byte = matching.first().map(|c| c.byte_range.start).unwrap_or(0);
                 let max_byte = matching.last().map(|c| c.byte_range.end).unwrap_or(0);
                 let line_range = Some(LineRange::new(start_l, end_l));
@@ -277,23 +300,35 @@ impl OpenTool {
 
             let matching: Vec<&FileChunk> = chunks
                 .iter()
-                .filter(|c| {
-                    c.byte_range.start <= end_b && c.byte_range.end >= start_b
-                })
+                .filter(|c| c.byte_range.start <= end_b && c.byte_range.end >= start_b)
                 .collect();
 
             if !matching.is_empty() {
-                let combined_content = matching.iter().map(|c| c.content.as_str()).collect::<Vec<_>>().join("\n");
-                let min_byte = matching.first().map(|c| c.byte_range.start).unwrap_or(start_b);
+                let combined_content = matching
+                    .iter()
+                    .map(|c| c.content.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                let min_byte = matching
+                    .first()
+                    .map(|c| c.byte_range.start)
+                    .unwrap_or(start_b);
                 let max_byte = matching.last().map(|c| c.byte_range.end).unwrap_or(end_b);
-                let min_line = matching.iter().filter_map(|c| c.line_range.map(|l| l.start_line)).min();
-                let max_line = matching.iter().filter_map(|c| c.line_range.map(|l| l.end_line)).max();
+                let min_line = matching
+                    .iter()
+                    .filter_map(|c| c.line_range.map(|l| l.start_line))
+                    .min();
+                let max_line = matching
+                    .iter()
+                    .filter_map(|c| c.line_range.map(|l| l.end_line))
+                    .max();
                 let line_range = match (min_line, max_line) {
                     (Some(s), Some(e)) => Some(LineRange::new(s, e)),
                     _ => None,
                 };
                 let locator = EvidenceBuilder::format_locator_summary(&filename, line_range, None);
-                let resource_uri = format!("navifs://file/{}/bytes/{}-{}", file.id, min_byte, max_byte);
+                let resource_uri =
+                    format!("navifs://file/{}/bytes/{}-{}", file.id, min_byte, max_byte);
 
                 return Ok(BoundedContentResponse {
                     file_id: file.id,
@@ -306,7 +341,9 @@ impl OpenTool {
                     line_range,
                     page_range: None,
                     content: combined_content,
-                    total_lines: line_range.map(|l| l.end_line.saturating_sub(l.start_line) + 1).unwrap_or(0),
+                    total_lines: line_range
+                        .map(|l| l.end_line.saturating_sub(l.start_line) + 1)
+                        .unwrap_or(0),
                     truncated: false,
                     chunks_included: matching.iter().map(|c| c.id).collect(),
                 });
@@ -315,7 +352,8 @@ impl OpenTool {
 
         // 5. Default: Return first chunk
         let first = &chunks[0];
-        let locator = EvidenceBuilder::format_locator_summary(&filename, first.line_range, first.page_range);
+        let locator =
+            EvidenceBuilder::format_locator_summary(&filename, first.line_range, first.page_range);
         let resource_uri = format!("navifs://file/{}/chunk/{}", file.id, first.id);
 
         Ok(BoundedContentResponse {

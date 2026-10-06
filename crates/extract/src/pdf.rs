@@ -1,15 +1,14 @@
 //! PDF document extractor with page-by-page text stream parsing, Flate decoding, and index locators
 
-use std::io::Read;
-use std::path::Path;
 use async_trait::async_trait;
 use flate2::read::ZlibDecoder;
-use tracing::debug;
 use navifs_core::{
-    ByteRange, ChunkType, DocumentExtractor, EntityNode, EntityType, ExtractionOutput,
-    FileChunk, FileIdentity, IndexLocator, NaviError, PageRange, RelationEdge,
-    RelationType, Result,
+    ByteRange, ChunkType, DocumentExtractor, EntityNode, EntityType, ExtractionOutput, FileChunk,
+    FileIdentity, IndexLocator, NaviError, PageRange, RelationEdge, RelationType, Result,
 };
+use std::io::Read;
+use std::path::Path;
+use tracing::debug;
 
 /// PDF extractor that parses internal page objects, text streams, and computes page/line bounds
 pub struct PdfExtractor;
@@ -59,7 +58,11 @@ impl PdfExtractor {
 
             if in_text_block {
                 // Check for newline / positioning operators (T*, Td, TD)
-                if i + 2 <= len && (&stream[i..i + 2] == b"T*" || &stream[i..i + 2] == b"Td" || &stream[i..i + 2] == b"TD") {
+                if i + 2 <= len
+                    && (&stream[i..i + 2] == b"T*"
+                        || &stream[i..i + 2] == b"Td"
+                        || &stream[i..i + 2] == b"TD")
+                {
                     let next_ok = i + 2 == len || stream[i + 2].is_ascii_whitespace();
                     if next_ok {
                         if !current_line.trim().is_empty() {
@@ -147,7 +150,7 @@ impl PdfExtractor {
     /// Decodes a hexadecimal string into bytes
     pub fn decode_hex(hex: &str) -> Option<Vec<u8>> {
         let clean = hex.trim();
-        if clean.len() % 2 != 0 {
+        if !clean.len().is_multiple_of(2) {
             return None;
         }
         (0..clean.len())
@@ -179,7 +182,10 @@ impl PdfExtractor {
             let stream_kw = b"stream";
             let endstream_kw = b"endstream";
 
-            if let Some(start_idx) = bytes[pos..].windows(stream_kw.len()).position(|w| w == stream_kw) {
+            if let Some(start_idx) = bytes[pos..]
+                .windows(stream_kw.len())
+                .position(|w| w == stream_kw)
+            {
                 let stream_start = pos + start_idx + stream_kw.len();
                 // Skip CRLF after "stream"
                 let mut data_start = stream_start;
@@ -190,7 +196,10 @@ impl PdfExtractor {
                     data_start += 1;
                 }
 
-                if let Some(end_idx) = bytes[data_start..].windows(endstream_kw.len()).position(|w| w == endstream_kw) {
+                if let Some(end_idx) = bytes[data_start..]
+                    .windows(endstream_kw.len())
+                    .position(|w| w == endstream_kw)
+                {
                     let data_end = data_start + end_idx;
                     let raw_stream = &bytes[data_start..data_end];
 
@@ -217,7 +226,11 @@ impl PdfExtractor {
             let text_chunk = String::from_utf8_lossy(bytes);
             for line in text_chunk.lines() {
                 let trimmed = line.trim();
-                if trimmed.len() > 3 && trimmed.chars().all(|c| c.is_ascii_graphic() || c.is_ascii_whitespace()) {
+                if trimmed.len() > 3
+                    && trimmed
+                        .chars()
+                        .all(|c| c.is_ascii_graphic() || c.is_ascii_whitespace())
+                {
                     fallback_lines.push(trimmed.to_string());
                 }
             }
@@ -238,18 +251,19 @@ impl DocumentExtractor for PdfExtractor {
 
     fn supports(&self, identity: &FileIdentity) -> bool {
         identity.mime_type.as_str() == "application/pdf"
-            || identity.fingerprint.extension().map_or(false, |ext| ext.eq_ignore_ascii_case("pdf"))
+            || identity
+                .fingerprint
+                .extension()
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("pdf"))
     }
 
-    async fn extract(
-        &self,
-        identity: &FileIdentity,
-        path: &Path,
-    ) -> Result<ExtractionOutput> {
-        let bytes = tokio::fs::read(path).await.map_err(|e| NaviError::ExtractionError {
-            path: path.to_path_buf(),
-            reason: format!("Failed reading PDF file bytes: {}", e),
-        })?;
+    async fn extract(&self, identity: &FileIdentity, path: &Path) -> Result<ExtractionOutput> {
+        let bytes = tokio::fs::read(path)
+            .await
+            .map_err(|e| NaviError::ExtractionError {
+                path: path.to_path_buf(),
+                reason: format!("Failed reading PDF file bytes: {}", e),
+            })?;
 
         let parsed_pages = Self::parse_pdf_pages(&bytes);
         let total_pages = parsed_pages.len().max(1);
@@ -259,16 +273,13 @@ impl DocumentExtractor for PdfExtractor {
         let mut relations = Vec::new();
 
         // 1. Create Document Entity Node
-        let doc_entity = EntityNode::new(
-            identity.fingerprint.filename(),
-            EntityType::Document,
-        )
-        .with_file_id(identity.id)
-        .with_properties(serde_json::json!({
-            "total_pages": total_pages,
-            "format": "PDF",
-            "size_bytes": bytes.len(),
-        }));
+        let doc_entity = EntityNode::new(identity.fingerprint.filename(), EntityType::Document)
+            .with_file_id(identity.id)
+            .with_properties(serde_json::json!({
+                "total_pages": total_pages,
+                "format": "PDF",
+                "size_bytes": bytes.len(),
+            }));
         let doc_id = doc_entity.id;
         entities.push(doc_entity);
 
@@ -278,8 +289,12 @@ impl DocumentExtractor for PdfExtractor {
 
         if parsed_pages.is_empty() {
             // Emits placeholder chunk if PDF text could not be extracted (e.g., scanned image)
-            let notice = format!("[PDF Document: {} (Total Pages: {}) - Image or binary content]", identity.fingerprint.filename(), total_pages);
-            let byte_len = notice.as_bytes().len() as u64;
+            let notice = format!(
+                "[PDF Document: {} (Total Pages: {}) - Image or binary content]",
+                identity.fingerprint.filename(),
+                total_pages
+            );
+            let byte_len = notice.len() as u64;
 
             let locator = IndexLocator::new(ByteRange::new(0, byte_len))
                 .with_lines(1, 1)
@@ -288,14 +303,22 @@ impl DocumentExtractor for PdfExtractor {
             let chunk = FileChunk::new(
                 identity.id,
                 0,
-                ChunkType::PdfPageSection { page: 1, total_pages: Some(total_pages) },
+                ChunkType::PdfPageSection {
+                    page: 1,
+                    total_pages: Some(total_pages),
+                },
                 locator.byte_range,
                 locator.line_range,
                 notice,
-            ).with_page_range(PageRange::new(1, total_pages));
+            )
+            .with_page_range(PageRange::new(1, total_pages));
 
             chunks.push(chunk);
-            return Ok(ExtractionOutput { chunks, entities, relations });
+            return Ok(ExtractionOutput {
+                chunks,
+                entities,
+                relations,
+            });
         }
 
         for (page_idx, page_lines) in parsed_pages.iter().enumerate() {
@@ -306,26 +329,24 @@ impl DocumentExtractor for PdfExtractor {
             global_line_counter = page_end_line + 1;
 
             let page_content = page_lines.join("\n");
-            let page_byte_len = page_content.as_bytes().len() as u64;
+            let page_byte_len = page_content.len() as u64;
 
             // 2. Create Page Entity Node and Relation
-            let page_entity = EntityNode::new(
-                format!("Page {}", page_num),
-                EntityType::Section,
-            )
-            .with_file_id(identity.id)
-            .with_properties(serde_json::json!({
-                "page": page_num,
-                "lines": page_line_count,
-            }));
+            let page_entity = EntityNode::new(format!("Page {}", page_num), EntityType::Section)
+                .with_file_id(identity.id)
+                .with_properties(serde_json::json!({
+                    "page": page_num,
+                    "lines": page_line_count,
+                }));
             let page_id = page_entity.id;
             relations.push(RelationEdge::new(doc_id, page_id, RelationType::Contains));
             entities.push(page_entity);
 
             // 3. Build Chunk with exact Page and Line locators
-            let locator = IndexLocator::new(ByteRange::new(byte_offset, byte_offset + page_byte_len))
-                .with_lines(page_start_line, page_end_line)
-                .with_pages(page_num, page_num);
+            let locator =
+                IndexLocator::new(ByteRange::new(byte_offset, byte_offset + page_byte_len))
+                    .with_lines(page_start_line, page_end_line)
+                    .with_pages(page_num, page_num);
 
             let chunk = FileChunk::new(
                 identity.id,

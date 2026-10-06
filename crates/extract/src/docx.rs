@@ -3,17 +3,17 @@
 //! Unpacks word/document.xml, identifies heading levels and table structures,
 //! produces formatted Markdown section chunks, and populates knowledge graph entities.
 
+use async_trait::async_trait;
+use navifs_core::{
+    ByteRange, ChunkType, DocumentExtractor, EntityNode, EntityType, ExtractionOutput, FileChunk,
+    FileIdentity, IndexLocator, NaviError, RelationEdge, RelationType, Result,
+};
+use quick_xml::events::Event;
+use quick_xml::reader::Reader;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use async_trait::async_trait;
-use quick_xml::events::Event;
-use quick_xml::reader::Reader;
 use tracing::debug;
-use navifs_core::{
-    ByteRange, ChunkType, DocumentExtractor, EntityNode, EntityType, ExtractionOutput,
-    FileChunk, FileIdentity, IndexLocator, NaviError, RelationEdge, RelationType, Result,
-};
 
 /// DOCX document extractor that parses XML bodies, headings, paragraphs, and tables
 pub struct DocxExtractor;
@@ -76,7 +76,9 @@ impl DocxExtractor {
                                 if attr.key.local_name().as_ref() == b"val" {
                                     let val = String::from_utf8_lossy(&attr.value).to_lowercase();
                                     if val.contains("heading") {
-                                        if let Some(digit) = val.chars().find(|c| c.is_ascii_digit()) {
+                                        if let Some(digit) =
+                                            val.chars().find(|c| c.is_ascii_digit())
+                                        {
                                             if let Some(d) = digit.to_digit(10) {
                                                 current_heading_depth = Some(d as u8);
                                             }
@@ -142,7 +144,10 @@ impl DocxExtractor {
                             let trimmed = current_p_text.trim().to_string();
                             if !trimmed.is_empty() && !in_tc {
                                 if let Some(depth) = current_heading_depth {
-                                    elements.push(DocxElement::Heading { text: trimmed, depth });
+                                    elements.push(DocxElement::Heading {
+                                        text: trimmed,
+                                        depth,
+                                    });
                                 } else {
                                     elements.push(DocxElement::Paragraph(trimmed));
                                 }
@@ -194,11 +199,7 @@ impl DocumentExtractor for DocxExtractor {
         identity.mime_type.is_docx()
     }
 
-    async fn extract(
-        &self,
-        identity: &FileIdentity,
-        path: &Path,
-    ) -> Result<ExtractionOutput> {
+    async fn extract(&self, identity: &FileIdentity, path: &Path) -> Result<ExtractionOutput> {
         let path_buf = path.to_path_buf();
         let file_id = identity.id;
         let filename = identity.fingerprint.filename().to_string();
@@ -209,21 +210,26 @@ impl DocumentExtractor for DocxExtractor {
                 reason: format!("Failed opening DOCX file: {}", e),
             })?;
 
-            let mut archive = zip::ZipArchive::new(file).map_err(|e| NaviError::ExtractionError {
-                path: path_buf.clone(),
-                reason: format!("Failed reading DOCX zip archive: {}", e),
-            })?;
+            let mut archive =
+                zip::ZipArchive::new(file).map_err(|e| NaviError::ExtractionError {
+                    path: path_buf.clone(),
+                    reason: format!("Failed reading DOCX zip archive: {}", e),
+                })?;
 
             let mut doc_xml = String::new();
             {
-                let mut xml_file = archive.by_name("word/document.xml").map_err(|e| NaviError::ExtractionError {
-                    path: path_buf.clone(),
-                    reason: format!("word/document.xml not found in DOCX: {}", e),
+                let mut xml_file = archive.by_name("word/document.xml").map_err(|e| {
+                    NaviError::ExtractionError {
+                        path: path_buf.clone(),
+                        reason: format!("word/document.xml not found in DOCX: {}", e),
+                    }
                 })?;
-                xml_file.read_to_string(&mut doc_xml).map_err(|e| NaviError::ExtractionError {
-                    path: path_buf.clone(),
-                    reason: format!("Failed reading word/document.xml: {}", e),
-                })?;
+                xml_file
+                    .read_to_string(&mut doc_xml)
+                    .map_err(|e| NaviError::ExtractionError {
+                        path: path_buf.clone(),
+                        reason: format!("Failed reading word/document.xml: {}", e),
+                    })?;
             }
 
             let elements = Self::parse_docx_xml(&doc_xml);
@@ -254,7 +260,7 @@ impl DocumentExtractor for DocxExtractor {
                         // Flush previous section
                         if !current_section_lines.is_empty() {
                             let content = current_section_lines.join("\n\n");
-                            let byte_len = content.as_bytes().len() as u64;
+                            let byte_len = content.len() as u64;
 
                             let locator = IndexLocator::new(ByteRange::new(
                                 current_byte_offset,
@@ -301,10 +307,7 @@ impl DocumentExtractor for DocxExtractor {
                             }
                         }
 
-                        let parent_id = heading_stack
-                            .last()
-                            .map(|(_, id)| *id)
-                            .unwrap_or(doc_id);
+                        let parent_id = heading_stack.last().map(|(_, id)| *id).unwrap_or(doc_id);
 
                         relations.push(
                             RelationEdge::new(parent_id, heading_id, RelationType::Contains)
@@ -325,7 +328,13 @@ impl DocumentExtractor for DocxExtractor {
                             md_tbl.push_str("| ");
                             md_tbl.push_str(&first_row.join(" | "));
                             md_tbl.push_str(" |\n| ");
-                            md_tbl.push_str(&first_row.iter().map(|_| "---").collect::<Vec<_>>().join(" | "));
+                            md_tbl.push_str(
+                                &first_row
+                                    .iter()
+                                    .map(|_| "---")
+                                    .collect::<Vec<_>>()
+                                    .join(" | "),
+                            );
                             md_tbl.push_str(" |\n");
 
                             for row in &tbl[1..] {
@@ -344,7 +353,7 @@ impl DocumentExtractor for DocxExtractor {
             // Flush final section
             if !current_section_lines.is_empty() {
                 let content = current_section_lines.join("\n\n");
-                let byte_len = content.as_bytes().len() as u64;
+                let byte_len = content.len() as u64;
 
                 let locator = IndexLocator::new(ByteRange::new(
                     current_byte_offset,

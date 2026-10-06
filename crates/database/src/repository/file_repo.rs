@@ -1,8 +1,10 @@
 //! Repository for persisting and retrieving file records using strictly parametric queries
 
 use chrono::{DateTime, Utc};
+use navifs_core::{
+    ContentHash, FileId, FileIdentity, FileStatus, MimeType, NaviError, PathFingerprint, Result,
+};
 use rusqlite::{params, Connection, OptionalExtension};
-use navifs_core::{ContentHash, FileId, FileIdentity, FileStatus, MimeType, NaviError, PathFingerprint, Result};
 
 pub struct FileRepository;
 
@@ -66,7 +68,7 @@ impl FileRepository {
 
         let id_str = id.to_string();
         let result = stmt
-            .query_row(params![id_str], |row| Self::map_row(row))
+            .query_row(params![id_str], Self::map_row)
             .optional()
             .map_err(|e| NaviError::Database(e.to_string()))?;
 
@@ -87,7 +89,7 @@ impl FileRepository {
             .map_err(|e| NaviError::Database(e.to_string()))?;
 
         let result = stmt
-            .query_row(params![normalized], |row| Self::map_row(row))
+            .query_row(params![normalized], Self::map_row)
             .optional()
             .map_err(|e| NaviError::Database(e.to_string()))?;
 
@@ -108,7 +110,7 @@ impl FileRepository {
 
         let hash_str = hash.as_str();
         let result = stmt
-            .query_row(params![hash_str], |row| Self::map_row(row))
+            .query_row(params![hash_str], Self::map_row)
             .optional()
             .map_err(|e| NaviError::Database(e.to_string()))?;
 
@@ -128,7 +130,9 @@ impl FileRepository {
             .map_err(|e| NaviError::Database(e.to_string()))?;
 
         let rows = stmt
-            .query_map(params![limit as i64, offset as i64], |row| Self::map_row(row))
+            .query_map(params![limit as i64, offset as i64], |row| {
+                Self::map_row(row)
+            })
             .map_err(|e| NaviError::Database(e.to_string()))?;
 
         let mut files = Vec::new();
@@ -169,7 +173,8 @@ impl FileRepository {
 
         let id = FileId::parse(&id_str).map_err(|_| rusqlite::Error::InvalidQuery)?;
         let fingerprint = PathFingerprint::from_path(std::path::Path::new(&path_str));
-        let status: FileStatus = serde_json::from_str(&status_str).map_err(|_| rusqlite::Error::InvalidQuery)?;
+        let status: FileStatus =
+            serde_json::from_str(&status_str).map_err(|_| rusqlite::Error::InvalidQuery)?;
 
         let created_at = DateTime::parse_from_rfc3339(&created_str)
             .map_err(|_| rusqlite::Error::InvalidQuery)?
@@ -180,7 +185,9 @@ impl FileRepository {
             .with_timezone(&Utc);
 
         let indexed_at = indexed_opt.and_then(|i| {
-            DateTime::parse_from_rfc3339(&i).ok().map(|d| d.with_timezone(&Utc))
+            DateTime::parse_from_rfc3339(&i)
+                .ok()
+                .map(|d| d.with_timezone(&Utc))
         });
 
         Ok(FileIdentity {

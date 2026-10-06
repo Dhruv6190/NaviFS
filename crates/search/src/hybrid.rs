@@ -1,21 +1,25 @@
 //! Hybrid retrieval engine combining SQLite FTS5 lexical search, metadata/path filters,
 //! aggressive local rank fusion, and feature vector reranking.
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use async_trait::async_trait;
-use tracing::{debug, info};
-use navifs_core::{ChunkId, DatabaseStore, FileChunk, FileId, FileIdentity, Result, SearchHit, SearchProvider};
-use navifs_database::SqliteDatabase;
 use crate::evidence::EvidenceBuilder;
 use crate::fusion::AggressiveRankFusion;
 use crate::reranker::FeatureVectorReranker;
 use crate::types::{CandidateResult, HybridSearchQuery};
+use async_trait::async_trait;
+use navifs_core::{
+    ChunkId, DatabaseStore, Embedder, FileChunk, FileId, FileIdentity, Result, SearchHit,
+    SearchProvider,
+};
+use navifs_database::SqliteDatabase;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tracing::{debug, info};
 
 /// Hybrid search engine combining SQLite FTS5, path/metadata filters, aggressive rank fusion, and feature reranking
 pub struct HybridSearchEngine {
     db: Arc<SqliteDatabase>,
     rank_fusion: AggressiveRankFusion,
+    embedder: Option<Arc<dyn Embedder>>,
 }
 
 impl HybridSearchEngine {
@@ -23,19 +27,39 @@ impl HybridSearchEngine {
         Self {
             db,
             rank_fusion: AggressiveRankFusion::default_aggressive(),
+            embedder: None,
         }
+    }
+
+    /// Enables the semantic channel: queries are embedded and matched against stored vectors
+    pub fn with_embedder(mut self, embedder: Arc<dyn Embedder>) -> Self {
+        self.embedder = Some(embedder);
+        self
     }
 
     /// Performs hybrid search combining FTS5 lexical matching, metadata/path filters, aggressive rank fusion,
     /// and multi-feature vector reranking.
-    pub async fn search_hybrid(&self, query: HybridSearchQuery) -> Result<Vec<CandidateResult>> {
+    pub async fn search_hybrid(
+        &self,
+        mut query: HybridSearchQuery,
+    ) -> Result<Vec<CandidateResult>> {
+        // Embed the query when semantic search is enabled and no vector was supplied
+        if query.query_vector.is_none() {
+            if let Some(embedder) = &self.embedder {
+                query.query_vector = Some(embedder.embed_query(&query.query).await?);
+                query.vector_model = Some(embedder.model_id().to_string());
+            }
+        }
         let fetch_limit = (query.limit * 3).max(30);
 
         // 1. Channel A: Content FTS5 lexical search
         let content_hits = match self.db.fts_search(&query.query, fetch_limit).await {
             Ok(hits) => hits,
             Err(e) => {
-                debug!("FTS5 content search returned error (query may be empty or syntax): {}", e);
+                debug!(
+                    "FTS5 content search returned error (query may be empty or syntax): {}",
+                    e
+                );
                 Vec::new()
             }
         };
@@ -50,12 +74,21 @@ impl HybridSearchEngine {
         };
 
         // 3. Channel C: Vector Semantic Search Hits (§8.2 & §17)
-        let semantic_hits: Vec<SearchHit> = if let (Some(ref q_vec), Some(ref model)) = (&query.query_vector, &query.vector_model) {
-            match self.db.find_nearest_neighbors(q_vec, model, fetch_limit).await {
+        let semantic_hits: Vec<SearchHit> = if let (Some(ref q_vec), Some(ref model)) =
+            (&query.query_vector, &query.vector_model)
+        {
+            match self
+                .db
+                .find_nearest_neighbors(q_vec, model, fetch_limit)
+                .await
+            {
                 Ok(matches) => matches
                     .into_iter()
                     .map(|m| SearchHit {
-                        chunk_id: m.chunk_id.map(|c| *c.as_uuid()).unwrap_or_else(uuid::Uuid::nil),
+                        chunk_id: m
+                            .chunk_id
+                            .map(|c| *c.as_uuid())
+                            .unwrap_or_else(uuid::Uuid::nil),
                         file_id: *m.file_id.as_uuid(),
                         score: m.similarity,
                         content: String::new(),
@@ -73,10 +106,15 @@ impl HybridSearchEngine {
         };
 
         // 4. Aggressive Local Rank Fusion across channels (Content + Path + Vector Semantic)
-        let fused_candidates = self.rank_fusion.fuse(&content_hits, &path_hits, &semantic_hits);
+        let fused_candidates = self
+            .rank_fusion
+            .fuse(&content_hits, &path_hits, &semantic_hits);
 
         if fused_candidates.is_empty() {
-            info!("Hybrid search for '{}' yielded 0 candidates before filtering", query.query);
+            info!(
+                "Hybrid search for '{}' yielded 0 candidates before filtering",
+                query.query
+            );
             return Ok(Vec::new());
         }
 
@@ -85,14 +123,16 @@ impl HybridSearchEngine {
         let mut chunk_cache: HashMap<ChunkId, Option<FileChunk>> = HashMap::new();
 
         for candidate in &fused_candidates {
-            if !file_cache.contains_key(&candidate.file_id) {
+            if let std::collections::hash_map::Entry::Vacant(e) =
+                file_cache.entry(candidate.file_id)
+            {
                 let file = self.db.get_file(&candidate.file_id).await.unwrap_or(None);
-                file_cache.insert(candidate.file_id, file);
+                e.insert(file);
             }
             if let Some(c_id) = candidate.chunk_id {
-                if !chunk_cache.contains_key(&c_id) {
+                if let std::collections::hash_map::Entry::Vacant(e) = chunk_cache.entry(c_id) {
                     let chunk = self.db.get_chunk(&c_id).await.unwrap_or(None);
-                    chunk_cache.insert(c_id, chunk);
+                    e.insert(chunk);
                 }
             }
         }
@@ -128,7 +168,10 @@ impl HybridSearchEngine {
             .collect();
 
         if filtered_candidates.is_empty() {
-            info!("All candidates filtered out by path/metadata constraints for '{}'", query.query);
+            info!(
+                "All candidates filtered out by path/metadata constraints for '{}'",
+                query.query
+            );
             return Ok(Vec::new());
         }
 
@@ -143,15 +186,12 @@ impl HybridSearchEngine {
 
         for candidate in filtered_candidates {
             let file_opt = file_cache.get(&candidate.file_id).and_then(|f| f.as_ref());
-            let chunk_opt = candidate.chunk_id.and_then(|c_id| chunk_cache.get(&c_id).and_then(|c| c.as_ref()));
+            let chunk_opt = candidate
+                .chunk_id
+                .and_then(|c_id| chunk_cache.get(&c_id).and_then(|c| c.as_ref()));
 
-            let features = reranker.rerank_candidate(
-                &query.query,
-                &candidate,
-                max_fused,
-                file_opt,
-                chunk_opt,
-            );
+            let features =
+                reranker.rerank_candidate(&query.query, &candidate, max_fused, file_opt, chunk_opt);
 
             // 8. Build Evidence Lookup with line/page bounds
             let evidence = EvidenceBuilder::resolve_evidence(

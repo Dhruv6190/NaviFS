@@ -11,15 +11,15 @@ pub use repository::{
     FtsSearchResult, RelationRepository, VectorMatch,
 };
 
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 use async_trait::async_trait;
-use rusqlite::Connection;
-use tracing::info;
 use navifs_core::{
     ChunkId, DatabaseStore, EmbeddingRecord, EntityId, EntityNode, FileChunk, FileId, FileIdentity,
     FileTemporalEvent, NaviError, RelationEdge, Result,
 };
+use rusqlite::Connection;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+use tracing::info;
 
 /// High-performance thread-safe SQLite database manager for NaviFS
 #[derive(Clone)]
@@ -37,8 +37,10 @@ impl SqliteDatabase {
         let conn = Connection::open(&db_path).map_err(|e| NaviError::Database(e.to_string()))?;
 
         // Enable Write-Ahead-Logging (WAL) for high concurrent throughput
-        conn.execute_batch("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON;")
-            .map_err(|e| NaviError::Database(e.to_string()))?;
+        conn.execute_batch(
+            "PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = ON;",
+        )
+        .map_err(|e| NaviError::Database(e.to_string()))?;
 
         Ok(Self {
             db_path,
@@ -67,7 +69,9 @@ impl SqliteDatabase {
     pub async fn run_migrations(&self) -> Result<()> {
         let conn = self.conn.clone();
         tokio::task::spawn_blocking(move || {
-            let mut conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let mut conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             run_migrations(&mut conn)
         })
         .await
@@ -80,7 +84,9 @@ impl SqliteDatabase {
         let conn = self.conn.clone();
         let records = records.to_vec();
         tokio::task::spawn_blocking(move || {
-            let mut conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let mut conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             EmbeddingRepository::save_batch(&mut conn, &records)
         })
         .await
@@ -97,7 +103,9 @@ impl SqliteDatabase {
         let query_vector = query_vector.to_vec();
         let model_name = model_name.to_string();
         tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             EmbeddingRepository::find_nearest_neighbors(&conn, &query_vector, &model_name, limit)
         })
         .await
@@ -110,7 +118,9 @@ impl SqliteDatabase {
         let conn = self.conn.clone();
         let query = query.to_string();
         tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             FtsRepository::search(&conn, &query, limit)
         })
         .await
@@ -121,7 +131,9 @@ impl SqliteDatabase {
         let conn = self.conn.clone();
         let term = term.to_string();
         tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             FtsRepository::search_by_filename_or_path(&conn, &term, limit)
         })
         .await
@@ -143,7 +155,9 @@ impl DatabaseStore for SqliteDatabase {
         let conn = self.conn.clone();
         let file = file.clone();
         tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             FileRepository::upsert(&conn, &file)
         })
         .await
@@ -154,7 +168,9 @@ impl DatabaseStore for SqliteDatabase {
         let conn = self.conn.clone();
         let id = *id;
         tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             FileRepository::get_by_id(&conn, &id)
         })
         .await
@@ -165,7 +181,9 @@ impl DatabaseStore for SqliteDatabase {
         let conn = self.conn.clone();
         let path = path.to_string();
         tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             FileRepository::get_by_path(&conn, &path)
         })
         .await
@@ -176,7 +194,9 @@ impl DatabaseStore for SqliteDatabase {
         let conn = self.conn.clone();
         let id = *id;
         tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             FileRepository::delete(&conn, &id)
         })
         .await
@@ -186,7 +206,9 @@ impl DatabaseStore for SqliteDatabase {
     async fn list_files(&self, limit: usize, offset: usize) -> Result<Vec<FileIdentity>> {
         let conn = self.conn.clone();
         tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             FileRepository::list(&conn, limit, offset)
         })
         .await
@@ -198,7 +220,9 @@ impl DatabaseStore for SqliteDatabase {
         let conn = self.conn.clone();
         let chunks = chunks.to_vec();
         tokio::task::spawn_blocking(move || {
-            let mut conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let mut conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             ChunkRepository::save_batch(&mut conn, &chunks)
         })
         .await
@@ -209,7 +233,9 @@ impl DatabaseStore for SqliteDatabase {
         let conn = self.conn.clone();
         let id = *id;
         tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             ChunkRepository::get_by_id(&conn, &id)
         })
         .await
@@ -220,7 +246,9 @@ impl DatabaseStore for SqliteDatabase {
         let conn = self.conn.clone();
         let file_id = *file_id;
         tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             ChunkRepository::get_for_file(&conn, &file_id)
         })
         .await
@@ -231,8 +259,29 @@ impl DatabaseStore for SqliteDatabase {
         let conn = self.conn.clone();
         let file_id = *file_id;
         tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             ChunkRepository::delete_for_file(&conn, &file_id)
+        })
+        .await
+        .map_err(|e| NaviError::Internal(e.to_string()))?
+    }
+
+    // Embedding operations
+    async fn save_embeddings(&self, records: &[EmbeddingRecord]) -> Result<()> {
+        SqliteDatabase::save_embeddings(self, records).await
+    }
+
+    async fn has_embeddings_for_file(&self, file_id: &FileId, model_name: &str) -> Result<bool> {
+        let conn = self.conn.clone();
+        let file_id = *file_id;
+        let model_name = model_name.to_string();
+        tokio::task::spawn_blocking(move || {
+            let conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
+            EmbeddingRepository::has_for_file(&conn, &file_id, &model_name)
         })
         .await
         .map_err(|e| NaviError::Internal(e.to_string()))?
@@ -243,7 +292,9 @@ impl DatabaseStore for SqliteDatabase {
         let conn = self.conn.clone();
         let entities = entities.to_vec();
         tokio::task::spawn_blocking(move || {
-            let mut conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let mut conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             RelationRepository::save_entities(&mut conn, &entities)
         })
         .await
@@ -254,7 +305,9 @@ impl DatabaseStore for SqliteDatabase {
         let conn = self.conn.clone();
         let id = *id;
         tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             RelationRepository::get_entity(&conn, &id)
         })
         .await
@@ -265,7 +318,9 @@ impl DatabaseStore for SqliteDatabase {
         let conn = self.conn.clone();
         let file_id = *file_id;
         tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             RelationRepository::get_entities_for_file(&conn, &file_id)
         })
         .await
@@ -277,7 +332,9 @@ impl DatabaseStore for SqliteDatabase {
         let conn = self.conn.clone();
         let relations = relations.to_vec();
         tokio::task::spawn_blocking(move || {
-            let mut conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let mut conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             RelationRepository::save_relationships(&mut conn, &relations)
         })
         .await
@@ -288,7 +345,9 @@ impl DatabaseStore for SqliteDatabase {
         let conn = self.conn.clone();
         let entity_id = *entity_id;
         tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             RelationRepository::get_relationships(&conn, &entity_id)
         })
         .await
@@ -300,18 +359,26 @@ impl DatabaseStore for SqliteDatabase {
         let conn = self.conn.clone();
         let event = event.clone();
         tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             EventRepository::record(&conn, &event)
         })
         .await
         .map_err(|e| NaviError::Internal(e.to_string()))?
     }
 
-    async fn get_events_for_file(&self, file_id: &FileId, limit: usize) -> Result<Vec<FileTemporalEvent>> {
+    async fn get_events_for_file(
+        &self,
+        file_id: &FileId,
+        limit: usize,
+    ) -> Result<Vec<FileTemporalEvent>> {
         let conn = self.conn.clone();
         let file_id = *file_id;
         tokio::task::spawn_blocking(move || {
-            let conn = conn.lock().map_err(|e| NaviError::Database(e.to_string()))?;
+            let conn = conn
+                .lock()
+                .map_err(|e| NaviError::Database(e.to_string()))?;
             EventRepository::get_for_file(&conn, &file_id, limit)
         })
         .await
@@ -322,8 +389,8 @@ impl DatabaseStore for SqliteDatabase {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
     use navifs_core::{ByteRange, ChunkType, ContentHash, LineRange};
+    use std::path::Path;
 
     #[tokio::test]
     async fn test_full_database_lifecycle_and_fts() {
@@ -341,12 +408,16 @@ mod tests {
         let chunk = FileChunk::new(
             file.id,
             0,
-            ChunkType::CodeBlock { language: "rust".to_string() },
+            ChunkType::CodeBlock {
+                language: "rust".to_string(),
+            },
             ByteRange::new(0, 100),
             Some(LineRange::new(1, 10)),
             "pub struct FileIdentity { pub id: FileId }".to_string(),
         );
-        db.save_chunks(&[chunk.clone()]).await.expect("Failed to save chunk");
+        db.save_chunks(&[chunk.clone()])
+            .await
+            .expect("Failed to save chunk");
 
         // 3. Insert embedding
         let embedding = EmbeddingRecord::new(
@@ -355,26 +426,45 @@ mod tests {
             "text-embedding-3-small",
             vec![0.1, 0.2, 0.3, 0.4],
         );
-        db.save_embeddings(&[embedding]).await.expect("Failed to save embeddings");
+        db.save_embeddings(&[embedding])
+            .await
+            .expect("Failed to save embeddings");
 
         // 4. Test FTS5 full-text search across content and filename
-        let search_hits = db.fts_search("FileIdentity", 10).await.expect("FTS search failed");
-        assert!(!search_hits.is_empty(), "Expected at least 1 FTS hit for FileIdentity");
+        let search_hits = db
+            .fts_search("FileIdentity", 10)
+            .await
+            .expect("FTS search failed");
+        assert!(
+            !search_hits.is_empty(),
+            "Expected at least 1 FTS hit for FileIdentity"
+        );
         assert_eq!(search_hits[0].file_id, file.id);
 
         // 5. Test vector similarity
         let query_vec = vec![0.1, 0.2, 0.3, 0.4];
-        let matches = db.find_nearest_neighbors(&query_vec, "text-embedding-3-small", 5).await.expect("Vector search failed");
+        let matches = db
+            .find_nearest_neighbors(&query_vec, "text-embedding-3-small", 5)
+            .await
+            .expect("Vector search failed");
         assert_eq!(matches.len(), 1);
         assert!((matches[0].similarity - 1.0).abs() < 1e-4);
 
         // 6. Test temporal event logging (§13 & §17.1)
-        let evt1 = FileTemporalEvent::new(file.id, "created", "scanner", Some(serde_json::json!({ "size": 2048 })));
+        let evt1 = FileTemporalEvent::new(
+            file.id,
+            "created",
+            "scanner",
+            Some(serde_json::json!({ "size": 2048 })),
+        );
         let evt2 = FileTemporalEvent::new(file.id, "indexed", "pipeline", None);
         db.record_event(&evt1).await.expect("Failed to record evt1");
         db.record_event(&evt2).await.expect("Failed to record evt2");
 
-        let events = db.get_events_for_file(&file.id, 10).await.expect("Failed to get events");
+        let events = db
+            .get_events_for_file(&file.id, 10)
+            .await
+            .expect("Failed to get events");
         assert_eq!(events.len(), 2);
         assert_eq!(events[0].event_type, "indexed");
         assert_eq!(events[1].event_type, "created");

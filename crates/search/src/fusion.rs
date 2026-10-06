@@ -1,8 +1,8 @@
 //! Aggressive local rank fusion combining multi-channel lexical, path, and full-text matches
 
-use std::collections::HashMap;
 use navifs_core::{ChunkId, FileId, SearchHit};
 use navifs_database::FtsSearchResult;
+use std::collections::HashMap;
 
 /// Aggressive rank fusion configuration
 #[derive(Debug, Clone)]
@@ -123,7 +123,8 @@ impl AggressiveRankFusion {
             let file_id = FileId::from_uuid(hit.file_id);
             let chunk_id = Some(ChunkId::from_uuid(hit.chunk_id));
             let key = (file_id, chunk_id);
-            let rrf_contribution = self.config.inverted_weight / (self.config.k + (rank + 1) as f32);
+            let rrf_contribution =
+                self.config.inverted_weight / (self.config.k + (rank + 1) as f32);
 
             let entry = accumulators.entry(key).or_insert_with(|| FusedCandidate {
                 file_id,
@@ -146,7 +147,8 @@ impl AggressiveRankFusion {
             .into_values()
             .map(|mut c| {
                 if c.channel_hits > 1 {
-                    let bonus_multiplier = 1.0 + (c.channel_hits - 1) as f32 * self.config.multi_channel_bonus;
+                    let bonus_multiplier =
+                        1.0 + (c.channel_hits - 1) as f32 * self.config.multi_channel_bonus;
                     c.fused_score *= bonus_multiplier;
                 }
                 c

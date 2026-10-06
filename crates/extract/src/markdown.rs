@@ -1,11 +1,11 @@
 //! Markdown structural extractor generating line/byte locators, heading entities, and hierarchy edges
 
-use std::path::Path;
 use async_trait::async_trait;
 use navifs_core::{
-    ByteRange, ChunkType, DocumentExtractor, EntityNode, EntityType, ExtractionOutput,
-    FileChunk, FileIdentity, IndexLocator, NaviError, RelationEdge, RelationType, Result,
+    ByteRange, ChunkType, DocumentExtractor, EntityNode, EntityType, ExtractionOutput, FileChunk,
+    FileIdentity, IndexLocator, NaviError, RelationEdge, RelationType, Result,
 };
+use std::path::Path;
 
 /// Markdown extractor breaking documents into structural sections with line bounds and graph nodes
 pub struct MarkdownExtractor;
@@ -26,24 +26,21 @@ impl DocumentExtractor for MarkdownExtractor {
         identity.mime_type.is_markdown()
     }
 
-    async fn extract(
-        &self,
-        identity: &FileIdentity,
-        path: &Path,
-    ) -> Result<ExtractionOutput> {
-        let raw = tokio::fs::read_to_string(path).await.map_err(|e| NaviError::ExtractionError {
-            path: path.to_path_buf(),
-            reason: format!("Failed reading markdown file: {}", e),
-        })?;
+    async fn extract(&self, identity: &FileIdentity, path: &Path) -> Result<ExtractionOutput> {
+        let raw =
+            tokio::fs::read_to_string(path)
+                .await
+                .map_err(|e| NaviError::ExtractionError {
+                    path: path.to_path_buf(),
+                    reason: format!("Failed reading markdown file: {}", e),
+                })?;
 
         let mut chunks = Vec::new();
         let mut entities = Vec::new();
         let mut relations = Vec::new();
 
-        let doc_entity = EntityNode::new(
-            identity.fingerprint.filename(),
-            EntityType::Document,
-        ).with_file_id(identity.id);
+        let doc_entity = EntityNode::new(identity.fingerprint.filename(), EntityType::Document)
+            .with_file_id(identity.id);
         let doc_id = doc_entity.id;
         entities.push(doc_entity);
 
@@ -66,7 +63,7 @@ impl DocumentExtractor for MarkdownExtractor {
                 // Flush previous section
                 if !current_section_lines.is_empty() {
                     let section_content = current_section_lines.join("\n");
-                    let byte_len = section_content.as_bytes().len() as u64;
+                    let byte_len = section_content.len() as u64;
 
                     let locator = IndexLocator::new(ByteRange::new(
                         current_byte_offset,
@@ -116,9 +113,17 @@ impl DocumentExtractor for MarkdownExtractor {
                 }
 
                 if let Some(&(_, parent_id)) = heading_stack.last() {
-                    relations.push(RelationEdge::new(parent_id, heading_id, RelationType::Contains));
+                    relations.push(RelationEdge::new(
+                        parent_id,
+                        heading_id,
+                        RelationType::Contains,
+                    ));
                 } else {
-                    relations.push(RelationEdge::new(doc_id, heading_id, RelationType::Contains));
+                    relations.push(RelationEdge::new(
+                        doc_id,
+                        heading_id,
+                        RelationType::Contains,
+                    ));
                 }
 
                 heading_stack.push((current_depth, heading_id));
@@ -130,7 +135,7 @@ impl DocumentExtractor for MarkdownExtractor {
         // Flush remaining section
         if !current_section_lines.is_empty() {
             let section_content = current_section_lines.join("\n");
-            let byte_len = section_content.as_bytes().len() as u64;
+            let byte_len = section_content.len() as u64;
 
             let locator = IndexLocator::new(ByteRange::new(
                 current_byte_offset,

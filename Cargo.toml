@@ -5,6 +5,7 @@ members = [
     "crates/database",
     "crates/indexer",
     "crates/extract",
+    "crates/embed",
     "crates/search",
     "crates/graph",
     "crates/mcp",
@@ -17,7 +18,7 @@ version = "0.1.0"
 edition = "2021"
 authors = ["NaviFS Team"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/navifs/navifs"
+repository = "https://github.com/Dhruv6190/NaviFS"
 readme = "README.md"
 description = "NaviFS: Local-first file system intelligent engine exposed via Model Context Protocol (MCP)"
 
@@ -27,6 +28,7 @@ navifs-core = { path = "crates/core" }
 navifs-database = { path = "crates/database" }
 navifs-indexer = { path = "crates/indexer" }
 navifs-extract = { path = "crates/extract" }
+navifs-embed = { path = "crates/embed" }
 navifs-search = { path = "crates/search" }
 navifs-graph = { path = "crates/graph" }
 navifs-mcp = { path = "crates/mcp" }
@@ -62,4 +64,10 @@ notify = "6.1"
 walkdir = "2.5"
 rusqlite = { version = "0.31", features = ["bundled"] }
 flate2 = { version = "1.0", default-features = false, features = ["rust_backend"] }
+directories = "6.0"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
 

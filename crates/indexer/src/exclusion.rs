@@ -35,6 +35,9 @@ impl PathExclusionFilter {
             "desktop.ini".to_string(),
             ".idea".to_string(),
             ".vscode".to_string(),
+            ".vcf".to_string(),
+            ".vfc".to_string(),
+            ".ics".to_string(),
         ];
 
         for custom in custom_patterns {
@@ -70,16 +73,24 @@ impl PathExclusionFilter {
         let path_segments: Vec<&str> = path_str.split('/').filter(|s| !s.is_empty()).collect();
 
         for pattern in &self.ignore_patterns {
-            let clean_pat = pattern.trim_matches('*').trim_matches('/').replace('\\', "/");
+            let clean_pat = pattern
+                .trim_matches('*')
+                .trim_matches('/')
+                .replace('\\', "/");
 
             // Segment-exact match (e.g., "node_modules", "target")
-            if path_segments.iter().any(|seg| seg.eq_ignore_ascii_case(&clean_pat)) {
+            if path_segments
+                .iter()
+                .any(|seg| seg.eq_ignore_ascii_case(&clean_pat))
+            {
                 trace!("Excluding path {:?} matching segment '{}'", path, pattern);
                 return true;
             }
 
-            // Substring or suffix match (e.g., ".tmp", ".DS_Store")
-            if path_str.ends_with(&clean_pat) || path_str.contains(&format!("/{}/", clean_pat)) {
+            // Substring or suffix match (e.g., ".tmp", ".DS_Store", ".vcf")
+            let path_str_lower = path_str.to_ascii_lowercase();
+            let clean_pat_lower = clean_pat.to_ascii_lowercase();
+            if path_str_lower.ends_with(&clean_pat_lower) || path_str_lower.contains(&format!("/{}/", clean_pat_lower)) {
                 trace!("Excluding path {:?} matching pattern '{}'", path, pattern);
                 return true;
             }
@@ -112,7 +123,8 @@ mod tests {
 
     #[test]
     fn test_custom_exclusions() {
-        let filter = PathExclusionFilter::new(vec!["custom_logs".to_string(), "*.cache".to_string()], true);
+        let filter =
+            PathExclusionFilter::new(vec!["custom_logs".to_string(), "*.cache".to_string()], true);
 
         assert!(filter.should_exclude(Path::new("C:/project/custom_logs/app.log")));
         assert!(filter.should_exclude(Path::new("C:/project/file.cache")));

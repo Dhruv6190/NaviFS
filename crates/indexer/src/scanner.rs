@@ -1,10 +1,10 @@
 //! Recursive filesystem scanner respecting OS permissions and enforcing path exclusions
 
+use crate::exclusion::PathExclusionFilter;
+use navifs_core::{ContentHash, DatabaseStore, Result, WatchDirectoryConfig};
 use std::path::{Path, PathBuf};
 use tracing::{debug, info, warn};
 use walkdir::WalkDir;
-use navifs_core::{ContentHash, DatabaseStore, Result, WatchDirectoryConfig};
-use crate::exclusion::PathExclusionFilter;
 
 /// Result summary of a recursive scan
 #[derive(Debug, Default, Clone)]
@@ -64,7 +64,10 @@ impl RecursiveScanner {
                 }
                 Err(err) => {
                     if let Some(path) = err.path() {
-                        warn!("Permission denied or inaccessible path during scan: {:?} ({})", path, err);
+                        warn!(
+                            "Permission denied or inaccessible path during scan: {:?} ({})",
+                            path, err
+                        );
                         permission_denied.push(path.to_path_buf());
                     } else {
                         warn!("WalkDir encountered system I/O error: {}", err);
@@ -131,7 +134,10 @@ impl RecursiveScanner {
                     }
                 }
                 Err(err) => {
-                    warn!("Unable to read file for SHA-256 detection {:?}: {}", path, err);
+                    warn!(
+                        "Unable to read file for SHA-256 detection {:?}: {}",
+                        path, err
+                    );
                     report.permission_denied_paths.push(path);
                 }
             }

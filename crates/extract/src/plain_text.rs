@@ -1,11 +1,11 @@
 //! Plain-text document extractor with sliding window chunker and index locators
 
-use std::path::Path;
 use async_trait::async_trait;
 use navifs_core::{
     ByteRange, ChunkType, DocumentExtractor, ExtractionOutput, FileChunk, FileIdentity,
     IndexLocator, NaviError, Result,
 };
+use std::path::Path;
 
 /// Universal plain-text extractor with sliding window chunker and exact line/byte locators
 pub struct PlainTextExtractor {
@@ -38,15 +38,14 @@ impl DocumentExtractor for PlainTextExtractor {
         identity.mime_type.is_text() || identity.mime_type.is_code()
     }
 
-    async fn extract(
-        &self,
-        identity: &FileIdentity,
-        path: &Path,
-    ) -> Result<ExtractionOutput> {
-        let content = tokio::fs::read_to_string(path).await.map_err(|e| NaviError::ExtractionError {
-            path: path.to_path_buf(),
-            reason: format!("Failed to read plain text file: {}", e),
-        })?;
+    async fn extract(&self, identity: &FileIdentity, path: &Path) -> Result<ExtractionOutput> {
+        let content =
+            tokio::fs::read_to_string(path)
+                .await
+                .map_err(|e| NaviError::ExtractionError {
+                    path: path.to_path_buf(),
+                    reason: format!("Failed to read plain text file: {}", e),
+                })?;
 
         let mut chunks = Vec::new();
         let lines: Vec<&str> = content.lines().collect();
@@ -68,10 +67,11 @@ impl DocumentExtractor for PlainTextExtractor {
 
             if current_chars >= self.chunk_size || line_num == lines.len() {
                 let chunk_text = current_lines.join("\n");
-                let byte_len = chunk_text.as_bytes().len() as u64;
+                let byte_len = chunk_text.len() as u64;
 
-                let locator = IndexLocator::new(ByteRange::new(byte_offset, byte_offset + byte_len))
-                    .with_lines(start_line_num, line_num);
+                let locator =
+                    IndexLocator::new(ByteRange::new(byte_offset, byte_offset + byte_len))
+                        .with_lines(start_line_num, line_num);
 
                 let chunk = FileChunk::new(
                     identity.id,
@@ -88,7 +88,8 @@ impl DocumentExtractor for PlainTextExtractor {
 
                 // Prepare next chunk with overlap
                 let overlap_lines_count = (self.chunk_overlap / 60).max(1).min(current_lines.len());
-                let next_lines = current_lines[current_lines.len() - overlap_lines_count..].to_vec();
+                let next_lines =
+                    current_lines[current_lines.len() - overlap_lines_count..].to_vec();
                 start_line_num = line_num.saturating_sub(overlap_lines_count) + 1;
                 current_chars = next_lines.iter().map(|l| l.len() + 1).sum();
                 current_lines = next_lines;

@@ -1,8 +1,8 @@
 //! Evidence resolution and locator formatting for LLMs and user inspection
 
-use navifs_core::{ByteRange, DatabaseStore, FileChunk, FileIdentity, LineRange, PageRange};
 use crate::fusion::FusedCandidate;
 use crate::types::EvidenceLookup;
+use navifs_core::{ByteRange, DatabaseStore, FileChunk, FileIdentity, LineRange, PageRange};
 
 /// Formats human and machine-readable evidence summaries with exact line and page locators
 pub struct EvidenceBuilder;
@@ -17,9 +17,15 @@ impl EvidenceBuilder {
         match (page_range, line_range) {
             (Some(page), Some(line)) => {
                 if page.start_page == page.end_page {
-                    format!("{}:Page {} (Lines {}-{})", filename, page.start_page, line.start_line, line.end_line)
+                    format!(
+                        "{}:Page {} (Lines {}-{})",
+                        filename, page.start_page, line.start_line, line.end_line
+                    )
                 } else {
-                    format!("{}:Pages {}-{} (Lines {}-{})", filename, page.start_page, page.end_page, line.start_line, line.end_line)
+                    format!(
+                        "{}:Pages {}-{} (Lines {}-{})",
+                        filename, page.start_page, page.end_page, line.start_line, line.end_line
+                    )
                 }
             }
             (Some(page), None) => {
@@ -56,12 +62,7 @@ impl EvidenceBuilder {
             .unwrap_or_else(|| candidate.path.clone());
 
         let (byte_range, line_range, page_range, content) = match chunk {
-            Some(c) => (
-                c.byte_range,
-                c.line_range,
-                c.page_range,
-                c.content.clone(),
-            ),
+            Some(c) => (c.byte_range, c.line_range, c.page_range, c.content.clone()),
             None => {
                 // If chunk is not preloaded, attempt db lookup if chunk_id is present
                 if let Some(ref c_id) = candidate.chunk_id {

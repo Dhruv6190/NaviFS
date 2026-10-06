@@ -10,9 +10,9 @@
 
 pub mod tools;
 
-use std::sync::Arc;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tracing::info;
 
@@ -93,20 +93,30 @@ impl McpServer {
     }
 
     /// Process a single incoming JSON-RPC request line
-    pub async fn handle_request(&self, request: JsonRpcRequest) -> JsonRpcResponse {
-        match request.method.as_str() {
-            "initialize" => self.handle_initialize(request.id).await,
+    pub async fn handle_request(&self, request: JsonRpcRequest) -> Option<JsonRpcResponse> {
+        // If request is a notification (no id) or is explicitly a notifications/ method,
+        // JSON-RPC 2.0 §4.1 dictates the server MUST NOT reply.
+        if request.id.is_none() || request.method.starts_with("notifications/") {
+            if request.method == "notifications/initialized" {
+                info!("Client completed MCP handshake: notifications/initialized");
+            }
+            return None;
+        }
+
+        let id = request.id;
+        let resp = match request.method.as_str() {
+            "initialize" => self.handle_initialize(id).await,
             "ping" => JsonRpcResponse {
                 jsonrpc: "2.0".to_string(),
-                id: request.id,
+                id,
                 result: Some(serde_json::json!({})),
                 error: None,
             },
-            "tools/list" => self.handle_tools_list(request.id).await,
-            "tools/call" => self.handle_tools_call(request.id, request.params).await,
+            "tools/list" => self.handle_tools_list(id).await,
+            "tools/call" => self.handle_tools_call(id, request.params).await,
             _ => JsonRpcResponse {
                 jsonrpc: "2.0".to_string(),
-                id: request.id,
+                id,
                 result: None,
                 error: Some(JsonRpcError {
                     code: -32601,
@@ -114,7 +124,8 @@ impl McpServer {
                     data: None,
                 }),
             },
-        }
+        };
+        Some(resp)
     }
 
     /// Handle initialize request with server instructions embedded in MCP headers
@@ -173,46 +184,6 @@ impl McpServer {
                 InspectTool::schema(),
                 OpenTool::schema(),
                 RelatedTool::schema(),
-                // Backward-compatibility aliases
-                {
-                    "name": "hybrid_search",
-                    "description": "Alias for search: Execute hybrid retrieval across the filesystem",
-                    "inputSchema": SearchTool::schema()["inputSchema"].clone()
-                },
-                {
-                    "name": "search_files",
-                    "description": "Lexically search indexed files and return matching snippets",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "query": { "type": "string", "description": "The search keywords or query phrase" },
-                            "limit": { "type": "integer", "description": "Maximum number of results (default 10)" }
-                        },
-                        "required": ["query"]
-                    }
-                },
-                {
-                    "name": "get_file_context",
-                    "description": "Retrieve full chunks and metadata for a specific file by its file_id or path",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "file_id": { "type": "string", "description": "UUID of the file" },
-                            "path": { "type": "string", "description": "Path to file" }
-                        }
-                    }
-                },
-                {
-                    "name": "list_files",
-                    "description": "List tracked files in the workspace with metadata",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "limit": { "type": "integer", "description": "Limit of files" },
-                            "offset": { "type": "integer", "description": "Offset" }
-                        }
-                    }
-                }
             ]
         });
 
@@ -243,7 +214,10 @@ impl McpServer {
         };
 
         let tool_name = params.get("name").and_then(|n| n.as_str()).unwrap_or("");
-        let arguments = params.get("arguments").cloned().unwrap_or(serde_json::json!({}));
+        let arguments = params
+            .get("arguments")
+            .cloned()
+            .unwrap_or(serde_json::json!({}));
 
         match tool_name {
             // Core Tool 1: search (and hybrid_search alias)
@@ -263,7 +237,13 @@ impl McpServer {
                     }
                 };
 
-                match SearchTool::execute(self.hybrid_search.as_deref(), self.search.as_ref(), search_args).await {
+                match SearchTool::execute(
+                    self.hybrid_search.as_deref(),
+                    self.search.as_ref(),
+                    search_args,
+                )
+                .await
+                {
                     Ok(candidates) => JsonRpcResponse {
                         jsonrpc: "2.0".to_string(),
                         id,
@@ -392,7 +372,9 @@ impl McpServer {
                     }
                 };
 
-                match RelatedTool::execute(self.db.as_ref(), self.graph.as_ref(), related_args).await {
+                match RelatedTool::execute(self.db.as_ref(), self.graph.as_ref(), related_args)
+                    .await
+                {
                     Ok(graph_resp) => JsonRpcResponse {
                         jsonrpc: "2.0".to_string(),
                         id,
@@ -420,8 +402,14 @@ impl McpServer {
 
             // Legacy tools for backward-compatibility
             "search_files" => {
-                let query = arguments.get("query").and_then(|q| q.as_str()).unwrap_or("");
-                let limit = arguments.get("limit").and_then(|l| l.as_u64()).unwrap_or(10) as usize;
+                let query = arguments
+                    .get("query")
+                    .and_then(|q| q.as_str())
+                    .unwrap_or("");
+                let limit = arguments
+                    .get("limit")
+                    .and_then(|l| l.as_u64())
+                    .unwrap_or(10) as usize;
 
                 match self.search.search(query, limit).await {
                     Ok(hits) => JsonRpcResponse {
@@ -451,8 +439,14 @@ impl McpServer {
             }
 
             "list_files" => {
-                let limit = arguments.get("limit").and_then(|l| l.as_u64()).unwrap_or(20) as usize;
-                let offset = arguments.get("offset").and_then(|o| o.as_u64()).unwrap_or(0) as usize;
+                let limit = arguments
+                    .get("limit")
+                    .and_then(|l| l.as_u64())
+                    .unwrap_or(20) as usize;
+                let offset = arguments
+                    .get("offset")
+                    .and_then(|o| o.as_u64())
+                    .unwrap_or(0) as usize;
 
                 match self.db.list_files(limit, offset).await {
                     Ok(files) => JsonRpcResponse {
@@ -482,20 +476,25 @@ impl McpServer {
             }
 
             "get_file_context" => {
-                let file_res = if let Some(id_str) = arguments.get("file_id").and_then(|i| i.as_str()) {
-                    match FileId::parse(id_str) {
-                        Ok(fid) => self.db.get_file(&fid).await,
-                        Err(e) => Err(navifs_core::NaviError::InvalidId(e.to_string())),
-                    }
-                } else if let Some(path_str) = arguments.get("path").and_then(|p| p.as_str()) {
-                    self.db.get_file_by_path(path_str).await
-                } else {
-                    Ok(None)
-                };
+                let file_res =
+                    if let Some(id_str) = arguments.get("file_id").and_then(|i| i.as_str()) {
+                        match FileId::parse(id_str) {
+                            Ok(fid) => self.db.get_file(&fid).await,
+                            Err(e) => Err(navifs_core::NaviError::InvalidId(e.to_string())),
+                        }
+                    } else if let Some(path_str) = arguments.get("path").and_then(|p| p.as_str()) {
+                        self.db.get_file_by_path(path_str).await
+                    } else {
+                        Ok(None)
+                    };
 
                 match file_res {
                     Ok(Some(file)) => {
-                        let chunks = self.db.get_chunks_for_file(&file.id).await.unwrap_or_default();
+                        let chunks = self
+                            .db
+                            .get_chunks_for_file(&file.id)
+                            .await
+                            .unwrap_or_default();
                         JsonRpcResponse {
                             jsonrpc: "2.0".to_string(),
                             id,
@@ -566,11 +565,12 @@ impl McpServer {
 
             match serde_json::from_str::<JsonRpcRequest>(line) {
                 Ok(req) => {
-                    let resp = self.handle_request(req).await;
-                    if let Ok(resp_str) = serde_json::to_string(&resp) {
-                        let _ = stdout.write_all(resp_str.as_bytes()).await;
-                        let _ = stdout.write_all(b"\n").await;
-                        let _ = stdout.flush().await;
+                    if let Some(resp) = self.handle_request(req).await {
+                        if let Ok(resp_str) = serde_json::to_string(&resp) {
+                            let _ = stdout.write_all(resp_str.as_bytes()).await;
+                            let _ = stdout.write_all(b"\n").await;
+                            let _ = stdout.flush().await;
+                        }
                     }
                 }
                 Err(err) => {
@@ -618,7 +618,9 @@ mod tests {
         // Populate test data
         let test_path = std::path::Path::new("src/main.rs");
         let mut identity = FileIdentity::new(test_path, 1024, chrono::Utc::now());
-        identity = identity.with_hash(ContentHash::new("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"));
+        identity = identity.with_hash(ContentHash::new(
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        ));
 
         db.upsert_file(&identity).await.expect("upsert file");
 
@@ -644,10 +646,12 @@ mod tests {
             .with_file_id(identity.id)
             .with_properties(serde_json::json!({ "kind": "macro" }));
         let target_id = target_entity.id;
-        db.save_entities(&[target_entity]).await.expect("save target entity");
+        db.save_entities(&[target_entity])
+            .await
+            .expect("save target entity");
 
-        let edge = RelationEdge::new(entity_id, target_id, RelationType::References)
-            .with_weight(1.0);
+        let edge =
+            RelationEdge::new(entity_id, target_id, RelationType::References).with_weight(1.0);
         db.save_relations(&[edge]).await.expect("save relation");
 
         let hybrid = Arc::new(HybridSearchEngine::new(db.clone()));
@@ -664,7 +668,7 @@ mod tests {
             params: None,
         };
 
-        let resp = server.handle_request(req).await;
+        let resp = server.handle_request(req).await.expect("response");
         assert_eq!(resp.jsonrpc, "2.0");
         assert_eq!(resp.id, Some(Value::from(1)));
         assert!(resp.error.is_none());
@@ -674,7 +678,9 @@ mod tests {
         assert_eq!(result["serverInfo"]["name"], "navifs-engine");
 
         // Verify server instructions embedded in MCP headers
-        let instructions = result["instructions"].as_str().expect("instructions must be string");
+        let instructions = result["instructions"]
+            .as_str()
+            .expect("instructions must be string");
         assert!(instructions.contains("NaviFS is a local-first intelligent filesystem engine"));
         assert!(instructions.contains("search"));
         assert!(instructions.contains("inspect"));
@@ -692,20 +698,23 @@ mod tests {
             params: None,
         };
 
-        let resp = server.handle_request(req).await;
+        let resp = server.handle_request(req).await.expect("response");
         assert!(resp.error.is_none());
 
         let result = resp.result.expect("tools list result");
         let tools = result["tools"].as_array().expect("tools array");
-        let tool_names: Vec<&str> = tools
-            .iter()
-            .filter_map(|t| t["name"].as_str())
-            .collect();
+        let tool_names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
 
         assert!(tool_names.contains(&"search"), "Must contain 'search' tool");
-        assert!(tool_names.contains(&"inspect"), "Must contain 'inspect' tool");
+        assert!(
+            tool_names.contains(&"inspect"),
+            "Must contain 'inspect' tool"
+        );
         assert!(tool_names.contains(&"open"), "Must contain 'open' tool");
-        assert!(tool_names.contains(&"related"), "Must contain 'related' tool");
+        assert!(
+            tool_names.contains(&"related"),
+            "Must contain 'related' tool"
+        );
     }
 
     #[tokio::test]
@@ -724,12 +733,16 @@ mod tests {
             })),
         };
 
-        let resp = server.handle_request(req).await;
+        let resp = server.handle_request(req).await.expect("response");
         assert!(resp.error.is_none());
         let result = resp.result.expect("search result");
         assert!(result["content"].is_array());
         let text = result["content"][0]["text"].as_str().unwrap();
-        assert!(text.contains("main.rs") || text.contains("Hello from NaviFS") || text.contains("score"));
+        assert!(
+            text.contains("main.rs")
+                || text.contains("Hello from NaviFS")
+                || text.contains("score")
+        );
     }
 
     #[tokio::test]
@@ -747,7 +760,7 @@ mod tests {
             })),
         };
 
-        let resp = server.handle_request(req).await;
+        let resp = server.handle_request(req).await.expect("response");
         assert!(resp.error.is_none());
         let result = resp.result.expect("inspect result");
         let text = result["content"][0]["text"].as_str().unwrap();
@@ -779,14 +792,17 @@ mod tests {
             })),
         };
 
-        let resp = server.handle_request(req).await;
+        let resp = server.handle_request(req).await.expect("response");
         assert!(resp.error.is_none());
         let result = resp.result.expect("open result");
         let text = result["content"][0]["text"].as_str().unwrap();
         let opened: Value = serde_json::from_str(text).expect("valid bounded content response");
 
         assert_eq!(opened["path"], "src/main.rs");
-        assert!(opened["locator_summary"].as_str().unwrap().contains("main.rs:Lines 1-3"));
+        assert!(opened["locator_summary"]
+            .as_str()
+            .unwrap()
+            .contains("main.rs:Lines 1-3"));
         assert!(opened["content"].as_str().unwrap().contains("println!"));
         assert_eq!(opened["total_lines"], 3);
     }
@@ -806,7 +822,7 @@ mod tests {
             })),
         };
 
-        let resp = server.handle_request(req).await;
+        let resp = server.handle_request(req).await.expect("response");
         assert!(resp.error.is_none());
         let result = resp.result.expect("related result");
         let text = result["content"][0]["text"].as_str().unwrap();
@@ -818,5 +834,18 @@ mod tests {
         assert_eq!(outgoing.len(), 1);
         assert_eq!(outgoing[0]["relation_type"], "References");
         assert_eq!(outgoing[0]["entity"]["name"], "println");
+    }
+
+    #[tokio::test]
+    async fn test_notifications_initialized_ignored() {
+        let server = create_test_mcp_server().await;
+        let req = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: None,
+            method: "notifications/initialized".to_string(),
+            params: None,
+        };
+        let resp = server.handle_request(req).await;
+        assert!(resp.is_none(), "Notifications must not produce a response");
     }
 }

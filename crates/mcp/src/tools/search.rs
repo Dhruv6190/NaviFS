@@ -2,13 +2,13 @@
 //! aggressive local rank fusion, and feature vector reranking with evidence locators.
 
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
-use serde_json::Value;
 use navifs_core::{ByteRange, ChunkId, FileId, SearchProvider};
 use navifs_search::{
     CandidateResult, EvidenceBuilder, EvidenceLookup, HybridSearchEngine, HybridSearchQuery,
     MetadataFilter, PathFilter, RerankerFeatures,
 };
+use serde::Deserialize;
+use serde_json::Value;
 
 /// Nested filters object according to MCP Contract §7.2
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -105,9 +105,21 @@ impl SearchTool {
         let mut query = HybridSearchQuery::new(&args.query).with_limit(limit);
 
         // Merge flat arguments with nested filters object (§7.2)
-        let path_prefix = args.filters.as_ref().and_then(|f| f.path_prefix.clone()).or(args.path_prefix);
-        let extensions = args.filters.as_ref().and_then(|f| f.extensions.clone()).or(args.extensions);
-        let mime_types = args.filters.as_ref().and_then(|f| f.mime_types.clone()).or(args.mime_types);
+        let path_prefix = args
+            .filters
+            .as_ref()
+            .and_then(|f| f.path_prefix.clone())
+            .or(args.path_prefix);
+        let extensions = args
+            .filters
+            .as_ref()
+            .and_then(|f| f.extensions.clone())
+            .or(args.extensions);
+        let mime_types = args
+            .filters
+            .as_ref()
+            .and_then(|f| f.mime_types.clone())
+            .or(args.mime_types);
 
         let mut path_filter = PathFilter::new();
         let mut has_path_filter = false;
@@ -140,10 +152,14 @@ impl SearchTool {
 
         if let Some(ref f) = args.filters {
             let min_mod: Option<DateTime<Utc>> = f.modified_after.as_ref().and_then(|s| {
-                DateTime::parse_from_rfc3339(s).map(|dt| dt.with_timezone(&Utc)).ok()
+                DateTime::parse_from_rfc3339(s)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .ok()
             });
             let max_mod: Option<DateTime<Utc>> = f.modified_before.as_ref().and_then(|s| {
-                DateTime::parse_from_rfc3339(s).map(|dt| dt.with_timezone(&Utc)).ok()
+                DateTime::parse_from_rfc3339(s)
+                    .map(|dt| dt.with_timezone(&Utc))
+                    .ok()
             });
 
             if min_mod.is_some() || max_mod.is_some() {
@@ -157,10 +173,7 @@ impl SearchTool {
         }
 
         if let Some(engine) = hybrid_engine {
-            engine
-                .search_hybrid(query)
-                .await
-                .map_err(|e| e.to_string())
+            engine.search_hybrid(query).await.map_err(|e| e.to_string())
         } else {
             let hits = search_provider
                 .search(&args.query, limit)
@@ -177,7 +190,8 @@ impl SearchTool {
                         .map(|n| n.to_string_lossy().to_string())
                         .unwrap_or_else(|| "unknown".to_string());
                     let byte_range = ByteRange::new(0, h.content.len() as u64);
-                    let locator_summary = EvidenceBuilder::format_locator_summary(&filename, None, None);
+                    let locator_summary =
+                        EvidenceBuilder::format_locator_summary(&filename, None, None);
 
                     CandidateResult {
                         file_id,

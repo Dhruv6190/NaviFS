@@ -1,9 +1,9 @@
-use std::fmt;
-use std::path::Path;
+use crate::foundation::{ContentHash, MimeType, PathFingerprint};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::path::Path;
 use uuid::Uuid;
-use crate::foundation::{ContentHash, MimeType, PathFingerprint};
 
 /// Strongly-typed unique identifier for files registered in NaviFS
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

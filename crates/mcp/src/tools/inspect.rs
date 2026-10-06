@@ -1,8 +1,8 @@
 //! `inspect` tool: Generates structural metadata summaries, chunk statistics, and outline entities.
 
+use navifs_core::{DatabaseStore, EntityId, EntityType, FileId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use navifs_core::{DatabaseStore, EntityId, EntityType, FileId};
 
 #[derive(Debug, Deserialize)]
 pub struct InspectArgs {
@@ -72,7 +72,8 @@ impl InspectTool {
                         "type": "string",
                         "description": "Filesystem path of the file to inspect"
                     }
-                }
+                },
+                "required": []
             }
         })
     }
@@ -97,10 +98,7 @@ impl InspectTool {
         };
 
         // 1. Retrieve chunks to compute chunk and page metrics
-        let chunks = db
-            .get_chunks_for_file(&file.id)
-            .await
-            .unwrap_or_default();
+        let chunks = db.get_chunks_for_file(&file.id).await.unwrap_or_default();
 
         let chunk_count = chunks.len();
         let mut max_page: Option<usize> = None;
@@ -116,16 +114,15 @@ impl InspectTool {
         }
 
         // 2. Retrieve document outline entities (headings, sections, functions)
-        let entities = db
-            .get_entities_for_file(&file.id)
-            .await
-            .unwrap_or_default();
+        let entities = db.get_entities_for_file(&file.id).await.unwrap_or_default();
 
         // 3. Compute structural taxonomy (§7.4)
         let structure = if file.mime_type.is_spreadsheet() {
             let sheets: Vec<String> = entities
                 .iter()
-                .filter(|e| e.properties.get("sheet").is_some() || e.entity_type == EntityType::Heading)
+                .filter(|e| {
+                    e.properties.get("sheet").is_some() || e.entity_type == EntityType::Heading
+                })
                 .map(|e| e.name.clone())
                 .collect();
             Some(DocumentStructure {
@@ -169,12 +166,15 @@ impl InspectTool {
             .collect();
 
         // 4. Retrieve recent temporal lifecycle events (§13 & §17.1)
-        let raw_events = db.get_events_for_file(&file.id, 10).await.unwrap_or_default();
+        let raw_events = db
+            .get_events_for_file(&file.id, 10)
+            .await
+            .unwrap_or_default();
         let recent_events = raw_events
             .into_iter()
             .map(|ev| {
-                let metadata: Value = serde_json::from_str(&ev.metadata)
-                    .unwrap_or_else(|_| serde_json::json!({}));
+                let metadata: Value =
+                    serde_json::from_str(&ev.metadata).unwrap_or_else(|_| serde_json::json!({}));
                 FileEventSummary {
                     id: ev.id,
                     event_type: ev.event_type,

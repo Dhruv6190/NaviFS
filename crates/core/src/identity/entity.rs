@@ -1,9 +1,9 @@
-use std::fmt;
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use crate::identity::chunk::ChunkId;
 use crate::identity::file::FileId;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use uuid::Uuid;
 
 /// Strongly-typed identifier for graph entities
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

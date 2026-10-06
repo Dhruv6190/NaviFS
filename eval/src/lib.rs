@@ -12,11 +12,11 @@
 //!    - `open` (bounded content range retrieval with line/byte bounds)
 //! 4. Full output specification verification.
 
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use navifs_core::{
     DatabaseStore, EntityNode, EntityType, RelationEdge, RelationType, WatchDirectoryConfig,
@@ -201,8 +201,14 @@ pub async fn run_evaluation() -> anyhow::Result<EvalReport> {
     }
 
     // Add explicit cross-file knowledge graph relationship for graph evaluation
-    let auth_file = db.get_file_by_path(&seeded_files[0].to_string_lossy()).await?.expect("auth file exists");
-    let arch_file = db.get_file_by_path(&seeded_files[1].to_string_lossy()).await?.expect("arch file exists");
+    let auth_file = db
+        .get_file_by_path(&seeded_files[0].to_string_lossy())
+        .await?
+        .expect("auth file exists");
+    let arch_file = db
+        .get_file_by_path(&seeded_files[1].to_string_lossy())
+        .await?
+        .expect("arch file exists");
 
     let auth_entities = db.get_entities_for_file(&auth_file.id).await?;
     let arch_entities = db.get_entities_for_file(&arch_file.id).await?;
@@ -210,7 +216,8 @@ pub async fn run_evaluation() -> anyhow::Result<EvalReport> {
     let auth_node_id = if let Some(e) = auth_entities.first() {
         e.id
     } else {
-        let n = EntityNode::new("AuthService", EntityType::ClassOrStruct).with_file_id(auth_file.id);
+        let n =
+            EntityNode::new("AuthService", EntityType::ClassOrStruct).with_file_id(auth_file.id);
         let id = n.id;
         db.save_entities(&[n]).await?;
         id
@@ -236,7 +243,11 @@ pub async fn run_evaluation() -> anyhow::Result<EvalReport> {
     for f in &all_files {
         total_chunks += db.get_chunks_for_file(&f.id).await?.len();
     }
-    println!("   Successfully indexed {} files into {} chunks.", all_files.len(), total_chunks);
+    println!(
+        "   Successfully indexed {} files into {} chunks.",
+        all_files.len(),
+        total_chunks
+    );
 
     // -------------------------------------------------------------------------
     // STEP 3: Setup MCP Server & Verify Initialize Header Instructions
@@ -256,15 +267,38 @@ pub async fn run_evaluation() -> anyhow::Result<EvalReport> {
     assert!(init_resp.error.is_none(), "initialize must not error");
     let init_result = init_resp.result.expect("initialize result must exist");
 
-    assert_eq!(init_result["protocolVersion"], "2024-11-05", "Spec: protocolVersion must be 2024-11-05");
-    assert_eq!(init_result["serverInfo"]["name"], "navifs-engine", "Spec: serverInfo.name must be navifs-engine");
+    assert_eq!(
+        init_result["protocolVersion"], "2024-11-05",
+        "Spec: protocolVersion must be 2024-11-05"
+    );
+    assert_eq!(
+        init_result["serverInfo"]["name"], "navifs-engine",
+        "Spec: serverInfo.name must be navifs-engine"
+    );
 
-    let instructions = init_result["instructions"].as_str().expect("instructions must be embedded in headers");
-    assert!(instructions.contains("NaviFS is a local-first intelligent filesystem engine"), "Spec: missing intro instructions");
-    assert!(instructions.contains("search"), "Spec: instructions must mention search tool");
-    assert!(instructions.contains("inspect"), "Spec: instructions must mention inspect tool");
-    assert!(instructions.contains("open"), "Spec: instructions must mention open tool");
-    assert!(instructions.contains("related"), "Spec: instructions must mention related tool");
+    let instructions = init_result["instructions"]
+        .as_str()
+        .expect("instructions must be embedded in headers");
+    assert!(
+        instructions.contains("NaviFS is a local-first intelligent filesystem engine"),
+        "Spec: missing intro instructions"
+    );
+    assert!(
+        instructions.contains("search"),
+        "Spec: instructions must mention search tool"
+    );
+    assert!(
+        instructions.contains("inspect"),
+        "Spec: instructions must mention inspect tool"
+    );
+    assert!(
+        instructions.contains("open"),
+        "Spec: instructions must mention open tool"
+    );
+    assert!(
+        instructions.contains("related"),
+        "Spec: instructions must mention related tool"
+    );
     println!("   ✅ Protocol 2024-11-05 validated. Server instructions verified in MCP headers.");
 
     // Phase 2: tools/list
@@ -282,10 +316,22 @@ pub async fn run_evaluation() -> anyhow::Result<EvalReport> {
         .filter_map(|t| t["name"].as_str().map(|s| s.to_string()))
         .collect();
 
-    assert!(tool_names.contains(&"search".to_string()), "Must register 'search'");
-    assert!(tool_names.contains(&"inspect".to_string()), "Must register 'inspect'");
-    assert!(tool_names.contains(&"open".to_string()), "Must register 'open'");
-    assert!(tool_names.contains(&"related".to_string()), "Must register 'related'");
+    assert!(
+        tool_names.contains(&"search".to_string()),
+        "Must register 'search'"
+    );
+    assert!(
+        tool_names.contains(&"inspect".to_string()),
+        "Must register 'inspect'"
+    );
+    assert!(
+        tool_names.contains(&"open".to_string()),
+        "Must register 'open'"
+    );
+    assert!(
+        tool_names.contains(&"related".to_string()),
+        "Must register 'related'"
+    );
     println!("   ✅ 4 Core MCP Tools Registered: {:?}", tool_names);
 
     // -------------------------------------------------------------------------
@@ -308,28 +354,68 @@ pub async fn run_evaluation() -> anyhow::Result<EvalReport> {
         })),
     };
     let search_resp = mcp_server.handle_request(search_call).await;
-    assert!(search_resp.error.is_none(), "search call failed: {:?}", search_resp.error);
-    let search_content = &search_resp.result.as_ref().unwrap()["content"][0]["text"].as_str().unwrap();
+    assert!(
+        search_resp.error.is_none(),
+        "search call failed: {:?}",
+        search_resp.error
+    );
+    let search_content = &search_resp.result.as_ref().unwrap()["content"][0]["text"]
+        .as_str()
+        .unwrap();
     let candidates: Vec<CandidateResult> = serde_json::from_str(search_content)
         .expect("Search output must match CandidateResult spec");
 
-    assert!(!candidates.is_empty(), "Search must return candidate matches");
+    assert!(
+        !candidates.is_empty(),
+        "Search must return candidate matches"
+    );
     let top_candidate = &candidates[0];
-    println!("      Top match: {} (Score: {:.3})", top_candidate.filename, top_candidate.score);
-    println!("      Locator:   {}", top_candidate.evidence.locator_summary);
-    println!("      Snippet:   {}", top_candidate.evidence.snippet.trim().lines().next().unwrap_or(""));
+    println!(
+        "      Top match: {} (Score: {:.3})",
+        top_candidate.filename, top_candidate.score
+    );
+    println!(
+        "      Locator:   {}",
+        top_candidate.evidence.locator_summary
+    );
+    println!(
+        "      Snippet:   {}",
+        top_candidate
+            .evidence
+            .snippet
+            .trim()
+            .lines()
+            .next()
+            .unwrap_or("")
+    );
 
     // Spec assertions for search
-    assert!(top_candidate.filename.contains("auth_service") || top_candidate.filename.contains("architecture"), "Expected top match");
-    assert!(top_candidate.score > 0.0, "Candidate score must be positive");
-    assert!(!top_candidate.features.lexical_score.is_nan(), "Features must contain valid lexical score");
-    assert!(!top_candidate.evidence.locator_summary.is_empty(), "Evidence must have locator summary");
+    assert!(
+        top_candidate.filename.contains("auth_service")
+            || top_candidate.filename.contains("architecture"),
+        "Expected top match"
+    );
+    assert!(
+        top_candidate.score > 0.0,
+        "Candidate score must be positive"
+    );
+    assert!(
+        !top_candidate.features.lexical_score.is_nan(),
+        "Features must contain valid lexical score"
+    );
+    assert!(
+        !top_candidate.evidence.locator_summary.is_empty(),
+        "Evidence must have locator summary"
+    );
 
     let selected_file_id = top_candidate.file_id;
     let selected_path = top_candidate.path.clone();
 
     // Trace 2: INSPECT
-    println!("\n   [Trace 2/4] 🔎 Calling 'inspect' tool for target file '{}'...", selected_path);
+    println!(
+        "\n   [Trace 2/4] 🔎 Calling 'inspect' tool for target file '{}'...",
+        selected_path
+    );
     let inspect_call = JsonRpcRequest {
         jsonrpc: "2.0".to_string(),
         id: Some(Value::from(102)),
@@ -342,8 +428,14 @@ pub async fn run_evaluation() -> anyhow::Result<EvalReport> {
         })),
     };
     let inspect_resp = mcp_server.handle_request(inspect_call).await;
-    assert!(inspect_resp.error.is_none(), "inspect call failed: {:?}", inspect_resp.error);
-    let inspect_content = &inspect_resp.result.as_ref().unwrap()["content"][0]["text"].as_str().unwrap();
+    assert!(
+        inspect_resp.error.is_none(),
+        "inspect call failed: {:?}",
+        inspect_resp.error
+    );
+    let inspect_content = &inspect_resp.result.as_ref().unwrap()["content"][0]["text"]
+        .as_str()
+        .unwrap();
     let summary: MetadataSummary = serde_json::from_str(inspect_content)
         .expect("Inspect output must match MetadataSummary spec");
 
@@ -352,20 +444,38 @@ pub async fn run_evaluation() -> anyhow::Result<EvalReport> {
     println!("      MIME:        {}", summary.mime_type);
     println!("      Size:        {} bytes", summary.size_bytes);
     println!("      Chunks:      {}", summary.chunk_count);
-    println!("      ContentHash: {}", summary.content_hash.as_deref().unwrap_or("none"));
-    println!("      Outline:     {} entities extracted", summary.outline.len());
+    println!(
+        "      ContentHash: {}",
+        summary.content_hash.as_deref().unwrap_or("none")
+    );
+    println!(
+        "      Outline:     {} entities extracted",
+        summary.outline.len()
+    );
 
     // Spec assertions for inspect
-    assert_eq!(summary.file_id, selected_file_id, "Inspect file_id must match target");
+    assert_eq!(
+        summary.file_id, selected_file_id,
+        "Inspect file_id must match target"
+    );
     assert!(summary.size_bytes > 0, "File size must be greater than 0");
-    assert!(summary.content_hash.is_some(), "Content hash (SHA-256) must be computed");
+    assert!(
+        summary.content_hash.is_some(),
+        "Content hash (SHA-256) must be computed"
+    );
     assert!(summary.chunk_count >= 1, "Must have indexed chunks");
-    assert!(!summary.outline.is_empty(), "Outline must contain extracted structural symbols");
+    assert!(
+        !summary.outline.is_empty(),
+        "Outline must contain extracted structural symbols"
+    );
 
     let target_entity_id = summary.outline[0].id;
 
     // Trace 3: RELATED
-    println!("\n   [Trace 3/4] 🕸️ Calling 'related' tool for entity ID '{}'...", target_entity_id);
+    println!(
+        "\n   [Trace 3/4] 🕸️ Calling 'related' tool for entity ID '{}'...",
+        target_entity_id
+    );
     let related_call = JsonRpcRequest {
         jsonrpc: "2.0".to_string(),
         id: Some(Value::from(103)),
@@ -378,22 +488,41 @@ pub async fn run_evaluation() -> anyhow::Result<EvalReport> {
         })),
     };
     let related_resp = mcp_server.handle_request(related_call).await;
-    assert!(related_resp.error.is_none(), "related call failed: {:?}", related_resp.error);
-    let related_content = &related_resp.result.as_ref().unwrap()["content"][0]["text"].as_str().unwrap();
+    assert!(
+        related_resp.error.is_none(),
+        "related call failed: {:?}",
+        related_resp.error
+    );
+    let related_content = &related_resp.result.as_ref().unwrap()["content"][0]["text"]
+        .as_str()
+        .unwrap();
     let graph_resp: OneHopGraphResponse = serde_json::from_str(related_content)
         .expect("Related output must match OneHopGraphResponse spec");
 
     println!("      Center Node: {}", graph_resp.center_entity.name);
     println!("      Outgoing:    {} edges", graph_resp.outgoing.len());
     println!("      Incoming:    {} edges", graph_resp.incoming.len());
-    println!("      Total Hops:  {} connections", graph_resp.total_connections);
+    println!(
+        "      Total Hops:  {} connections",
+        graph_resp.total_connections
+    );
 
     // Spec assertions for related
-    assert_eq!(graph_resp.center_entity.id, target_entity_id, "Center entity id must match requested entity");
-    assert_eq!(graph_resp.total_connections, graph_resp.outgoing.len() + graph_resp.incoming.len(), "Total connections mismatch");
+    assert_eq!(
+        graph_resp.center_entity.id, target_entity_id,
+        "Center entity id must match requested entity"
+    );
+    assert_eq!(
+        graph_resp.total_connections,
+        graph_resp.outgoing.len() + graph_resp.incoming.len(),
+        "Total connections mismatch"
+    );
 
     // Trace 4: OPEN (Bounded Content Range Retrieval)
-    println!("\n   [Trace 4/4] 📖 Calling 'open' tool for bounded lines 1..25 of '{}'...", selected_path);
+    println!(
+        "\n   [Trace 4/4] 📖 Calling 'open' tool for bounded lines 1..25 of '{}'...",
+        selected_path
+    );
     let open_call = JsonRpcRequest {
         jsonrpc: "2.0".to_string(),
         id: Some(Value::from(104)),
@@ -408,24 +537,53 @@ pub async fn run_evaluation() -> anyhow::Result<EvalReport> {
         })),
     };
     let open_resp = mcp_server.handle_request(open_call).await;
-    assert!(open_resp.error.is_none(), "open call failed: {:?}", open_resp.error);
-    let open_content = &open_resp.result.as_ref().unwrap()["content"][0]["text"].as_str().unwrap();
+    assert!(
+        open_resp.error.is_none(),
+        "open call failed: {:?}",
+        open_resp.error
+    );
+    let open_content = &open_resp.result.as_ref().unwrap()["content"][0]["text"]
+        .as_str()
+        .unwrap();
     let bounded: BoundedContentResponse = serde_json::from_str(open_content)
         .expect("Open output must match BoundedContentResponse spec");
 
     println!("      Locator Summary: {}", bounded.locator_summary);
-    println!("      Byte Range:      {}..{}", bounded.byte_range.start, bounded.byte_range.end);
+    println!(
+        "      Byte Range:      {}..{}",
+        bounded.byte_range.start, bounded.byte_range.end
+    );
     println!("      Line Range:      {:?}", bounded.line_range);
     println!("      Retrieved Lines: {}", bounded.total_lines);
     println!("      Chunks Included: {}", bounded.chunks_included.len());
-    println!("      Snippet Preview: {}", bounded.content.lines().take(3).collect::<Vec<_>>().join(" | "));
+    println!(
+        "      Snippet Preview: {}",
+        bounded
+            .content
+            .lines()
+            .take(3)
+            .collect::<Vec<_>>()
+            .join(" | ")
+    );
 
     // Spec assertions for open
-    assert_eq!(bounded.path, selected_path, "Bounded path must match target");
-    assert!(bounded.locator_summary.contains("Lines 1-") || bounded.locator_summary.contains("Line 1"), "Locator summary must reflect line bounds");
+    assert_eq!(
+        bounded.path, selected_path,
+        "Bounded path must match target"
+    );
+    assert!(
+        bounded.locator_summary.contains("Lines 1-") || bounded.locator_summary.contains("Line 1"),
+        "Locator summary must reflect line bounds"
+    );
     assert!(bounded.total_lines > 0, "Total lines must be positive");
-    assert!(!bounded.content.is_empty(), "Retrieved bounded content must not be empty");
-    assert!(!bounded.chunks_included.is_empty(), "Chunks included list must not be empty");
+    assert!(
+        !bounded.content.is_empty(),
+        "Retrieved bounded content must not be empty"
+    );
+    assert!(
+        !bounded.chunks_included.is_empty(),
+        "Chunks included list must not be empty"
+    );
 
     // -------------------------------------------------------------------------
     // STEP 5: Clean Up and Generate Report

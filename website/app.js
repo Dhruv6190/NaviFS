@@ -193,6 +193,7 @@
                   features: {
                     lexical_score: 0.96,
                     path_similarity: 0.88,
+                    vector_score: 0.91,
                     freshness_score: 0.92,
                     extraction_quality: 1.0,
                     composite_score: 0.942
@@ -384,9 +385,9 @@
 
   // --- 5. Clipboard Copy Utility with Visual Feedback ---
   const installCmds = {
-    windows: 'powershell -ExecutionPolicy Bypass -File .\\install.ps1',
-    unix: './install.sh',
-    cli: 'navifs setup',
+    windows: 'powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Dhruv6190/NaviFS/main/install.ps1 | iex"',
+    unix: 'curl -fsSL https://raw.githubusercontent.com/Dhruv6190/NaviFS/main/install.sh | bash',
+    cli: 'cargo install --git https://github.com/Dhruv6190/NaviFS.git navifs-daemon',
   };
 
   const segmentBtns = document.querySelectorAll('.install-segment-btn[data-platform]');

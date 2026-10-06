@@ -3,14 +3,14 @@
 //! Parses sheet names, columns, formulas/values, generates tabular Markdown chunks,
 //! and maps sheet names to knowledge graph entities.
 
-use std::path::Path;
 use async_trait::async_trait;
 use calamine::{open_workbook_auto, Data, Reader};
-use tracing::{debug, warn};
 use navifs_core::{
-    ByteRange, ChunkType, DocumentExtractor, EntityNode, EntityType, ExtractionOutput,
-    FileChunk, FileIdentity, IndexLocator, NaviError, RelationEdge, RelationType, Result,
+    ByteRange, ChunkType, DocumentExtractor, EntityNode, EntityType, ExtractionOutput, FileChunk,
+    FileIdentity, IndexLocator, NaviError, RelationEdge, RelationType, Result,
 };
+use std::path::Path;
+use tracing::{debug, warn};
 
 /// Spreadsheet extractor parsing workbook sheets into tabular Markdown chunks
 pub struct XlsxExtractor;
@@ -31,20 +31,17 @@ impl DocumentExtractor for XlsxExtractor {
         identity.mime_type.is_spreadsheet()
     }
 
-    async fn extract(
-        &self,
-        identity: &FileIdentity,
-        path: &Path,
-    ) -> Result<ExtractionOutput> {
+    async fn extract(&self, identity: &FileIdentity, path: &Path) -> Result<ExtractionOutput> {
         let path_buf = path.to_path_buf();
         let file_id = identity.id;
         let filename = identity.fingerprint.filename().to_string();
 
         tokio::task::spawn_blocking(move || {
-            let mut workbook = open_workbook_auto(&path_buf).map_err(|e| NaviError::ExtractionError {
-                path: path_buf.clone(),
-                reason: format!("Failed opening spreadsheet workbook: {}", e),
-            })?;
+            let mut workbook =
+                open_workbook_auto(&path_buf).map_err(|e| NaviError::ExtractionError {
+                    path: path_buf.clone(),
+                    reason: format!("Failed opening spreadsheet workbook: {}", e),
+                })?;
 
             let mut chunks = Vec::new();
             let mut entities = Vec::new();
@@ -56,7 +53,11 @@ impl DocumentExtractor for XlsxExtractor {
             entities.push(doc_entity);
 
             let sheet_names = workbook.sheet_names().to_vec();
-            debug!("Extracting {} sheets from {:?}", sheet_names.len(), path_buf);
+            debug!(
+                "Extracting {} sheets from {:?}",
+                sheet_names.len(),
+                path_buf
+            );
 
             let mut chunk_index = 0u32;
             let mut current_byte_offset = 0u64;
@@ -72,8 +73,8 @@ impl DocumentExtractor for XlsxExtractor {
                 let sheet_id = sheet_entity.id;
                 entities.push(sheet_entity);
 
-                let relation = RelationEdge::new(doc_id, sheet_id, RelationType::Contains)
-                    .with_weight(1.0);
+                let relation =
+                    RelationEdge::new(doc_id, sheet_id, RelationType::Contains).with_weight(1.0);
                 relations.push(relation);
 
                 // 3. Load Sheet Range
@@ -103,17 +104,23 @@ impl DocumentExtractor for XlsxExtractor {
                         Some(Data::DateTime(d)) => format!("{:.2}", d),
                         _ => format!("Col{}", col_idx + 1),
                     };
-                    headers.push(if cell_str.is_empty() { format!("Col{}", col_idx + 1) } else { cell_str });
+                    headers.push(if cell_str.is_empty() {
+                        format!("Col{}", col_idx + 1)
+                    } else {
+                        cell_str
+                    });
                 }
 
                 // Chunk data rows in groups of 50 rows
                 let chunk_size = 50;
                 let data_rows = row_count.saturating_sub(1);
-                let total_chunks = (data_rows + chunk_size - 1) / chunk_size;
+                let total_chunks = data_rows.div_ceil(chunk_size);
 
                 for batch_idx in 0..total_chunks.max(1) {
                     let row_start = 1 + batch_idx * chunk_size;
-                    let row_end = (row_start + chunk_size - 1).min(row_count.saturating_sub(1)).max(row_start);
+                    let row_end = (row_start + chunk_size - 1)
+                        .min(row_count.saturating_sub(1))
+                        .max(row_start);
 
                     let mut table_md = String::new();
                     // Header line
@@ -121,7 +128,13 @@ impl DocumentExtractor for XlsxExtractor {
                     table_md.push_str("| ");
                     table_md.push_str(&headers.join(" | "));
                     table_md.push_str(" |\n| ");
-                    table_md.push_str(&headers.iter().map(|_| "---").collect::<Vec<_>>().join(" | "));
+                    table_md.push_str(
+                        &headers
+                            .iter()
+                            .map(|_| "---")
+                            .collect::<Vec<_>>()
+                            .join(" | "),
+                    );
                     table_md.push_str(" |\n");
 
                     // Row data
@@ -148,7 +161,7 @@ impl DocumentExtractor for XlsxExtractor {
                         table_md.push_str(" |\n");
                     }
 
-                    let byte_len = table_md.as_bytes().len() as u64;
+                    let byte_len = table_md.len() as u64;
                     let locator = IndexLocator::new(ByteRange::new(
                         current_byte_offset,
                         current_byte_offset + byte_len,

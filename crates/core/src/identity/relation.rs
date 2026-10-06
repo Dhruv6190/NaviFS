@@ -1,8 +1,8 @@
-use std::fmt;
+use crate::identity::entity::EntityId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use uuid::Uuid;
-use crate::identity::entity::EntityId;
 
 /// Strongly typed relation identifier
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]

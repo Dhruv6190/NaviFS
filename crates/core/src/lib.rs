@@ -14,12 +14,16 @@ pub mod traits;
 pub use config::{DatabaseConfig, EngineConfig, IndexingConfig, McpConfig, WatchDirectoryConfig};
 pub use error::{NaviError, Result};
 pub use event::{ChangeKind, FileTemporalEvent, FsEvent, IndexEvent};
-pub use foundation::{ByteRange, ContentHash, IndexLocator, LineRange, MimeType, PageRange, PathFingerprint};
+pub use foundation::{
+    ByteRange, ContentHash, IndexLocator, LineRange, MimeType, PageRange, PathFingerprint,
+};
 pub use identity::{
     ChunkId, ChunkType, EmbeddingId, EmbeddingRecord, EntityId, EntityNode, EntityType, FileChunk,
     FileId, FileIdentity, FileStatus, RelationEdge, RelationId, RelationType,
 };
-pub use traits::{DatabaseStore, DocumentExtractor, ExtractionOutput, SearchHit, SearchProvider};
+pub use traits::{
+    DatabaseStore, DocumentExtractor, Embedder, ExtractionOutput, SearchHit, SearchProvider,
+};
 
 #[cfg(test)]
 mod tests {
@@ -65,7 +69,8 @@ mod tests {
     #[test]
     fn test_entity_and_relation_graph() {
         let file_id = FileId::new();
-        let entity_a = EntityNode::new("UserStruct", EntityType::ClassOrStruct).with_file_id(file_id);
+        let entity_a =
+            EntityNode::new("UserStruct", EntityType::ClassOrStruct).with_file_id(file_id);
         let entity_b = EntityNode::new("UserRepository", EntityType::TraitOrInterface);
 
         let edge = RelationEdge::new(entity_a.id, entity_b.id, RelationType::Implements);

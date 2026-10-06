@@ -1,9 +1,9 @@
+use crate::error::{NaviError, Result};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::fmt;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
-use crate::error::{NaviError, Result};
 
 /// Strongly typed cryptographic content hash (SHA-256)
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -73,9 +73,7 @@ impl PathFingerprint {
             .map(|f| f.to_string_lossy().to_string())
             .unwrap_or_default();
 
-        let extension = path
-            .extension()
-            .map(|e| e.to_string_lossy().to_lowercase());
+        let extension = path.extension().map(|e| e.to_string_lossy().to_lowercase());
 
         Self {
             normalized_path: normalized,
@@ -221,7 +219,10 @@ pub struct LineRange {
 
 impl LineRange {
     pub fn new(start_line: usize, end_line: usize) -> Self {
-        Self { start_line, end_line }
+        Self {
+            start_line,
+            end_line,
+        }
     }
 
     pub fn line_count(&self) -> usize {
@@ -242,7 +243,10 @@ pub struct PageRange {
 
 impl PageRange {
     pub fn new(start_page: usize, end_page: usize) -> Self {
-        Self { start_page, end_page }
+        Self {
+            start_page,
+            end_page,
+        }
     }
 
     pub fn single(page: usize) -> Self {

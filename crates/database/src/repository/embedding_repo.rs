@@ -1,8 +1,8 @@
 //! Repository for persisting vector embeddings and computing cosine similarity nearest neighbors
 
 use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection, OptionalExtension};
 use navifs_core::{ChunkId, EmbeddingId, EmbeddingRecord, FileId, NaviError, Result};
+use rusqlite::{params, Connection, OptionalExtension};
 
 pub struct EmbeddingRepository;
 
@@ -18,9 +18,9 @@ pub struct VectorMatch {
 impl EmbeddingRepository {
     /// Inserts or replaces vector embeddings inside a transaction using parametric inputs
     pub fn save_batch(conn: &mut Connection, records: &[EmbeddingRecord]) -> Result<()> {
-        let tx = conn
-            .transaction()
-            .map_err(|e| NaviError::Database(format!("Failed to begin embedding transaction: {}", e)))?;
+        let tx = conn.transaction().map_err(|e| {
+            NaviError::Database(format!("Failed to begin embedding transaction: {}", e))
+        })?;
 
         {
             let mut stmt = tx
@@ -48,12 +48,15 @@ impl EmbeddingRepository {
                     vector_bytes,
                     record.created_at.to_rfc3339(),
                 ])
-                .map_err(|e| NaviError::Database(format!("Failed executing embedding insert: {}", e)))?;
+                .map_err(|e| {
+                    NaviError::Database(format!("Failed executing embedding insert: {}", e))
+                })?;
             }
         }
 
-        tx.commit()
-            .map_err(|e| NaviError::Database(format!("Failed committing embedding transaction: {}", e)))?;
+        tx.commit().map_err(|e| {
+            NaviError::Database(format!("Failed committing embedding transaction: {}", e))
+        })?;
 
         Ok(())
     }
@@ -71,7 +74,7 @@ impl EmbeddingRepository {
 
         let chunk_id_str = chunk_id.to_string();
         let record = stmt
-            .query_row(params![chunk_id_str], |row| Self::map_row(row))
+            .query_row(params![chunk_id_str], Self::map_row)
             .optional()
             .map_err(|e| NaviError::Database(e.to_string()))?;
 
@@ -91,7 +94,7 @@ impl EmbeddingRepository {
 
         let file_id_str = file_id.to_string();
         let rows = stmt
-            .query_map(params![file_id_str], |row| Self::map_row(row))
+            .query_map(params![file_id_str], Self::map_row)
             .map_err(|e| NaviError::Database(e.to_string()))?;
 
         let mut records = Vec::new();
@@ -118,7 +121,7 @@ impl EmbeddingRepository {
             .map_err(|e| NaviError::Database(e.to_string()))?;
 
         let rows = stmt
-            .query_map(params![model_name], |row| Self::map_row(row))
+            .query_map(params![model_name], Self::map_row)
             .map_err(|e| NaviError::Database(e.to_string()))?;
 
         let mut matches = Vec::new();
@@ -136,17 +139,34 @@ impl EmbeddingRepository {
         }
 
         // Rank by highest similarity score
-        matches.sort_by(|a, b| b.similarity.partial_cmp(&a.similarity).unwrap_or(std::cmp::Ordering::Equal));
+        matches.sort_by(|a, b| {
+            b.similarity
+                .partial_cmp(&a.similarity)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         matches.truncate(limit);
 
         Ok(matches)
     }
 
+    /// Returns true when the file has at least one embedding produced by `model_name`
+    pub fn has_for_file(conn: &Connection, file_id: &FileId, model_name: &str) -> Result<bool> {
+        conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM embeddings WHERE file_id = ?1 AND model_name = ?2)",
+            params![file_id.to_string(), model_name],
+            |row| row.get::<_, bool>(0),
+        )
+        .map_err(|e| NaviError::Database(e.to_string()))
+    }
+
     /// Deletes all embeddings for a file
     pub fn delete_for_file(conn: &Connection, file_id: &FileId) -> Result<()> {
         let file_id_str = file_id.to_string();
-        conn.execute("DELETE FROM embeddings WHERE file_id = ?1", params![file_id_str])
-            .map_err(|e| NaviError::Database(e.to_string()))?;
+        conn.execute(
+            "DELETE FROM embeddings WHERE file_id = ?1",
+            params![file_id_str],
+        )
+        .map_err(|e| NaviError::Database(e.to_string()))?;
         Ok(())
     }
 

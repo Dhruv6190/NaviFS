@@ -3,6 +3,9 @@
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let report = navifs_eval::run_evaluation().await?;
-    println!("\n📊 Final Evaluation Report:\n{}", serde_json::to_string_pretty(&report)?);
+    println!(
+        "\n📊 Final Evaluation Report:\n{}",
+        serde_json::to_string_pretty(&report)?
+    );
     Ok(())
 }

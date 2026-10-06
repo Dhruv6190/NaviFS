@@ -1,19 +1,19 @@
 //! Repository for persisting and retrieving content chunks (contentions) using parametric queries
 
-use rusqlite::{params, Connection, OptionalExtension};
 use navifs_core::{
     ByteRange, ChunkId, ChunkType, ContentHash, FileChunk, FileId, LineRange, NaviError, PageRange,
     Result,
 };
+use rusqlite::{params, Connection, OptionalExtension};
 
 pub struct ChunkRepository;
 
 impl ChunkRepository {
     /// Inserts or replaces a batch of content chunks inside a transaction with parametric inputs
     pub fn save_batch(conn: &mut Connection, chunks: &[FileChunk]) -> Result<()> {
-        let tx = conn
-            .transaction()
-            .map_err(|e| NaviError::Database(format!("Failed to begin chunk transaction: {}", e)))?;
+        let tx = conn.transaction().map_err(|e| {
+            NaviError::Database(format!("Failed to begin chunk transaction: {}", e))
+        })?;
 
         {
             let mut stmt = tx
@@ -50,12 +50,15 @@ impl ChunkRepository {
                     chunk.token_count as i64,
                     chunk.content_hash.as_str(),
                 ])
-                .map_err(|e| NaviError::Database(format!("Failed executing chunk insert: {}", e)))?;
+                .map_err(|e| {
+                    NaviError::Database(format!("Failed executing chunk insert: {}", e))
+                })?;
             }
         }
 
-        tx.commit()
-            .map_err(|e| NaviError::Database(format!("Failed committing chunk transaction: {}", e)))?;
+        tx.commit().map_err(|e| {
+            NaviError::Database(format!("Failed committing chunk transaction: {}", e))
+        })?;
 
         Ok(())
     }
@@ -74,7 +77,7 @@ impl ChunkRepository {
 
         let id_str = id.to_string();
         let chunk = stmt
-            .query_row(params![id_str], |row| Self::map_row(row))
+            .query_row(params![id_str], Self::map_row)
             .optional()
             .map_err(|e| NaviError::Database(e.to_string()))?;
 
@@ -95,7 +98,7 @@ impl ChunkRepository {
 
         let file_id_str = file_id.to_string();
         let rows = stmt
-            .query_map(params![file_id_str], |row| Self::map_row(row))
+            .query_map(params![file_id_str], Self::map_row)
             .map_err(|e| NaviError::Database(e.to_string()))?;
 
         let mut chunks = Vec::new();
@@ -108,8 +111,11 @@ impl ChunkRepository {
     /// Deletes all chunks associated with a file
     pub fn delete_for_file(conn: &Connection, file_id: &FileId) -> Result<()> {
         let file_id_str = file_id.to_string();
-        conn.execute("DELETE FROM content_chunks WHERE file_id = ?1", params![file_id_str])
-            .map_err(|e| NaviError::Database(e.to_string()))?;
+        conn.execute(
+            "DELETE FROM content_chunks WHERE file_id = ?1",
+            params![file_id_str],
+        )
+        .map_err(|e| NaviError::Database(e.to_string()))?;
         Ok(())
     }
 
@@ -138,7 +144,8 @@ impl ChunkRepository {
 
         let id = ChunkId::parse(&id_str).map_err(|_| rusqlite::Error::InvalidQuery)?;
         let file_id = FileId::parse(&file_id_str).map_err(|_| rusqlite::Error::InvalidQuery)?;
-        let chunk_type: ChunkType = serde_json::from_str(&chunk_type_str).map_err(|_| rusqlite::Error::InvalidQuery)?;
+        let chunk_type: ChunkType =
+            serde_json::from_str(&chunk_type_str).map_err(|_| rusqlite::Error::InvalidQuery)?;
 
         let line_range = match (line_start, line_end) {
             (Some(s), Some(e)) => Some(LineRange::new(s as usize, e as usize)),

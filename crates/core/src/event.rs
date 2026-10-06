@@ -1,7 +1,7 @@
-use std::path::PathBuf;
+use crate::identity::file::FileId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use crate::identity::file::FileId;
+use std::path::PathBuf;
 
 /// Classification of filesystem modifications
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

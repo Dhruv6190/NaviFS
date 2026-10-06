@@ -1,8 +1,8 @@
-use std::fmt;
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 use crate::foundation::{ByteRange, ContentHash, IndexLocator, LineRange, PageRange};
 use crate::identity::file::FileId;
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use uuid::Uuid;
 
 /// Strongly typed chunk identifier
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -47,13 +47,28 @@ impl fmt::Display for ChunkId {
 /// Semantic chunk type category
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ChunkType {
-    CodeBlock { language: String },
-    MarkdownSection { heading: String, depth: u8 },
-    DocxSection { heading: String, depth: u8 },
+    CodeBlock {
+        language: String,
+    },
+    MarkdownSection {
+        heading: String,
+        depth: u8,
+    },
+    DocxSection {
+        heading: String,
+        depth: u8,
+    },
     TextParagraph,
     JsonBlock,
-    PdfPageSection { page: usize, total_pages: Option<usize> },
-    SpreadsheetSheet { sheet: String, row_start: usize, row_end: usize },
+    PdfPageSection {
+        page: usize,
+        total_pages: Option<usize>,
+    },
+    SpreadsheetSheet {
+        sheet: String,
+        row_start: usize,
+        row_end: usize,
+    },
     CsvRowGroup,
     Generic,
 }

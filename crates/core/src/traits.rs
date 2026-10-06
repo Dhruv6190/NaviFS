@@ -1,13 +1,30 @@
-use std::path::Path;
-use async_trait::async_trait;
 use crate::error::Result;
 use crate::event::FileTemporalEvent;
 use crate::identity::{
     chunk::{ChunkId, FileChunk},
+    embedding::EmbeddingRecord,
     entity::{EntityId, EntityNode},
     file::{FileId, FileIdentity},
     relation::RelationEdge,
 };
+use async_trait::async_trait;
+use std::path::Path;
+
+/// Produces dense vector embeddings for text, used for semantic retrieval
+#[async_trait]
+pub trait Embedder: Send + Sync {
+    /// Stable identifier of the model; stored with every vector so a model change is detectable
+    fn model_id(&self) -> &str;
+
+    /// Dimensionality of the produced vectors
+    fn dimensions(&self) -> usize;
+
+    /// Embeds document passages (indexing side). Output order matches input order.
+    async fn embed_documents(&self, texts: &[String]) -> Result<Vec<Vec<f32>>>;
+
+    /// Embeds a search query (retrieval side)
+    async fn embed_query(&self, text: &str) -> Result<Vec<f32>>;
+}
 
 /// Trait implemented by content and metadata extractors
 #[async_trait]
@@ -19,11 +36,7 @@ pub trait DocumentExtractor: Send + Sync {
     fn supports(&self, identity: &FileIdentity) -> bool;
 
     /// Extract chunks, entities, and relationships from the file
-    async fn extract(
-        &self,
-        identity: &FileIdentity,
-        path: &Path,
-    ) -> Result<ExtractionOutput>;
+    async fn extract(&self, identity: &FileIdentity, path: &Path) -> Result<ExtractionOutput>;
 }
 
 /// Output package returned by an extraction pipeline
@@ -52,6 +65,11 @@ pub trait DatabaseStore: Send + Sync {
     async fn get_chunks_for_file(&self, file_id: &FileId) -> Result<Vec<FileChunk>>;
     async fn delete_chunks_for_file(&self, file_id: &FileId) -> Result<()>;
 
+    // Embedding operations
+    async fn save_embeddings(&self, records: &[EmbeddingRecord]) -> Result<()>;
+    /// True when the file already has vectors produced by the given model
+    async fn has_embeddings_for_file(&self, file_id: &FileId, model_name: &str) -> Result<bool>;
+
     // Entity operations
     async fn save_entities(&self, entities: &[EntityNode]) -> Result<()>;
     async fn get_entity(&self, id: &EntityId) -> Result<Option<EntityNode>>;
@@ -63,7 +81,11 @@ pub trait DatabaseStore: Send + Sync {
 
     // Temporal Event operations (§13 & §17.1)
     async fn record_event(&self, event: &FileTemporalEvent) -> Result<()>;
-    async fn get_events_for_file(&self, file_id: &FileId, limit: usize) -> Result<Vec<FileTemporalEvent>>;
+    async fn get_events_for_file(
+        &self,
+        file_id: &FileId,
+        limit: usize,
+    ) -> Result<Vec<FileTemporalEvent>>;
 }
 
 /// Search engine interface providing lexical, vector, and hybrid search

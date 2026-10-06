@@ -1,15 +1,15 @@
 //! Extractor registry dispatching files to format-specific document extractors
 
-use std::path::Path;
-use std::sync::Arc;
-use tracing::debug;
-use navifs_core::{DocumentExtractor, ExtractionOutput, FileIdentity, Result};
 use crate::docx::DocxExtractor;
 use crate::json::JsonExtractor;
 use crate::markdown::MarkdownExtractor;
 use crate::pdf::PdfExtractor;
 use crate::plain_text::PlainTextExtractor;
 use crate::xlsx::XlsxExtractor;
+use navifs_core::{DocumentExtractor, ExtractionOutput, FileIdentity, Result};
+use std::path::Path;
+use std::sync::Arc;
+use tracing::debug;
 
 /// Registry managing active document extractors
 pub struct ExtractorRegistry {

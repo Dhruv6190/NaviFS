@@ -85,7 +85,7 @@
         </div>
         <div class="terminal-copy-bar" id="hero-copy-bar" onclick="copyCurrentInstallSnippet(this)">
           <span class="terminal-prompt">$</span>
-          <span class="terminal-cmd" id="cmd-install">powershell -ExecutionPolicy Bypass -File .\install.ps1</span>
+          <span class="terminal-cmd" id="cmd-install">powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Dhruv6190/NaviFS/main/install.ps1 | iex"</span>
           <svg class="terminal-copy-icon" viewBox="0 0 24 24">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
@@ -113,13 +113,14 @@
               </svg>
             </div>
             <div class="bento-metric">&lt; 10ms</div>
-            <h3 class="bento-title">Two-Stage Hybrid Retrieval & Rank Fusion</h3>
+            <h3 class="bento-title">Three-Channel Hybrid Retrieval & Rank Fusion</h3>
             <p class="bento-body">
-              Combines SQLite FTS5 lexical BM25 matching, path scoping, and vector semantic nearest-neighbor scoring using Reciprocal Rank Fusion (RRF k=20.0). Results are refined through a 4-dimensional feature reranker (lexical relevance, path similarity, freshness decay, and extraction quality).
+              Combines Channel A (SQLite FTS5 lexical BM25 matching), Channel B (path hierarchy scoping), and Channel C (dense vector cosine similarity via offline BGE-small embeddings on Candle). Merged with Reciprocal Rank Fusion (RRF k=20.0) and refined through a 4D feature reranker.
             </p>
           </div>
           <div class="bento-code-snippet">
-score = (0.45 * lexical) + (0.25 * path_similarity) + (0.15 * freshness) + (0.15 * quality)
+RRF(d) = Σ [ w_c / (k + rank_c(d)) ]  |  k = 20.0
+rerank_score = (0.45 * lexical) + (0.25 * path) + (0.15 * freshness) + (0.15 * quality)
           </div>
         </div>
 
@@ -580,21 +581,26 @@ navifs search "RecursiveScanner" --limit 5</code></pre>
         <section class="doc-section">
           <h2 class="doc-section-title">Quick Install</h2>
           <p class="doc-paragraph">
-            Run the 1-click installer for your operating system. It installs the <span class="doc-code-inline">navifs</span> binary to <span class="doc-code-inline">~/.navifs/bin</span>, adds it to your user <span class="doc-code-inline">PATH</span>, and launches the interactive auto-configurator.
+            Run the 1-click installer for your operating system. It downloads the pre-built release binary, validates the SHA-256 checksum, places <span class="doc-code-inline">navifs</span> in your program bin directory, adds it to your user <span class="doc-code-inline">PATH</span>, and launches the interactive auto-configurator.
           </p>
 
           <h3 style="font-size: 16px; margin: 16px 0 8px; color: #ffffff;">Windows (PowerShell)</h3>
-          <pre class="code-window"><code>powershell -ExecutionPolicy Bypass -File .\install.ps1
+          <pre class="code-window"><code># 1-Line Remote Installer:
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Dhruv6190/NaviFS/main/install.ps1 | iex"
 
-# Or automated non-interactive install:
-powershell -ExecutionPolicy Bypass -File .\install.ps1 -All</code></pre>
+# Or from local clone:
+.\install.ps1 -All</code></pre>
 
           <h3 style="font-size: 16px; margin: 20px 0 8px; color: #ffffff;">macOS &amp; Linux (Bash / Zsh)</h3>
-          <pre class="code-window"><code>./install.sh</code></pre>
+          <pre class="code-window"><code># 1-Line Remote Installer:
+curl -fsSL https://raw.githubusercontent.com/Dhruv6190/NaviFS/main/install.sh | bash
+
+# Or from local clone:
+./install.sh</code></pre>
 
           <h2 class="doc-section-title">Interactive Auto-Configurator</h2>
           <p class="doc-paragraph">
-            Once installed, run <span class="doc-code-inline">navifs setup</span> at any time to reconfigure or connect newly installed AI agents:
+            Once installed, run <span class="doc-code-inline">navifs setup</span> at any time to connect newly installed AI agents or perform safe dry-runs and rollbacks:
           </p>
           <pre class="code-window"><code># Interactive terminal selection
 navifs setup
@@ -602,9 +608,18 @@ navifs setup
 # Automated: configure all detected clients without prompt
 navifs setup --all
 
+# Inspect what would change without modifying files
+navifs setup --dry-run --all
+
+# Safely remove NaviFS from client configs
+navifs setup --uninstall
+
 # Target a specific client
 navifs setup --client claude
-navifs setup --client cursor</code></pre>
+navifs setup --client cursor
+navifs setup --client antigravity
+navifs setup --client windsurf
+navifs setup --client vscode</code></pre>
 
           <h2 class="doc-section-title">Building From Source (Optional)</h2>
           <p class="doc-paragraph">
@@ -622,18 +637,18 @@ navifs setup --client cursor</code></pre>
               <tbody>
                 <tr>
                   <td>Windows</td>
-                  <td>Rust 1.80+ (MSVC or x86_64-pc-windows-gnu with TDM-GCC-64)</td>
-                  <td>Included <span class="doc-code-inline">libgcc_eh.a</span> stub for GNU linkers</td>
+                  <td>Rust 1.80+ (MSVC toolchain)</td>
+                  <td>Requires Visual Studio 2022 Community or Build Tools</td>
                 </tr>
                 <tr>
                   <td>macOS</td>
                   <td>Apple Clang &amp; Xcode Command Line Tools</td>
-                  <td>Apple Silicon (M1/M2/M3/M4) and Intel x86_64</td>
+                  <td>Universal support: Apple Silicon (arm64) and Intel (x86_64)</td>
                 </tr>
                 <tr>
                   <td>Linux</td>
-                  <td>GCC / Clang + libsqlite3-dev</td>
-                  <td>Ubuntu 22.04+, Debian, Arch, Fedora</td>
+                  <td>GCC / Clang + standard build tools</td>
+                  <td>Ubuntu, Debian, Fedora, Arch (x86_64 and aarch64)</td>
                 </tr>
               </tbody>
             </table>
@@ -707,23 +722,58 @@ cargo test --workspace</code></pre>
                   <td><span class="doc-code-inline">query</span></td>
                   <td>string</td>
                   <td>Yes</td>
-                  <td>Search keywords or phrase</td>
+                  <td>Natural language query or code search keywords</td>
                 </tr>
                 <tr>
                   <td><span class="doc-code-inline">filters</span></td>
                   <td>object</td>
                   <td>No</td>
-                  <td>Nested filters: <span class="doc-code-inline">path_prefix</span>, <span class="doc-code-inline">mime_types</span>, <span class="doc-code-inline">modified_after</span>, <span class="doc-code-inline">modified_before</span></td>
+                  <td>Scoped filters: <span class="doc-code-inline">path_prefix</span>, <span class="doc-code-inline">mime_types</span>, <span class="doc-code-inline">modified_after</span>, <span class="doc-code-inline">modified_before</span></td>
                 </tr>
                 <tr>
                   <td><span class="doc-code-inline">limit</span></td>
                   <td>integer</td>
                   <td>No</td>
-                  <td>Maximum top-K candidates (default 10)</td>
+                  <td>Maximum top-K candidates to return (default 10)</td>
                 </tr>
               </tbody>
             </table>
           </div>
+
+          <h2 class="doc-section-title">Three-Channel Retrieval Mechanics</h2>
+          <p class="doc-paragraph">
+            The <span class="doc-code-inline">search</span> tool executes candidate generation across three distinct channels simultaneously:
+          </p>
+          <ul style="margin-left: 20px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 20px;">
+            <li><strong>Channel A (Content Lexical)</strong>: SQLite FTS5 full-text matching with BM25 ranking across tokenized content chunks.</li>
+            <li><strong>Channel B (Path & Hierarchy)</strong>: Token-based path segment matching rewarding exact filenames and target directories.</li>
+            <li><strong>Channel C (Semantic Vector)</strong>: 384-dimensional dense vector embeddings generated via pure-Rust Candle (BGE-small-en-v1.5) compared via L2-normalized cosine similarity.</li>
+          </ul>
+
+          <h2 class="doc-section-title">Standard Response Schema</h2>
+          <pre class="code-window"><code>[
+  {
+    "file_id": "0194a2b1-3829-7c1e-9182-3d8a92e104f7",
+    "filename": "pipeline.rs",
+    "path": "crates/indexer/src/pipeline.rs",
+    "mime_type": "text/x-rust",
+    "score": 0.942,
+    "features": {
+      "lexical_score": 0.96,
+      "path_similarity": 0.88,
+      "vector_score": 0.91,
+      "freshness_score": 0.92,
+      "extraction_quality": 1.0,
+      "composite_score": 0.942
+    },
+    "evidence": {
+      "locator_summary": "pipeline.rs:Lines 140-165",
+      "byte_range": { "start": 4200, "end": 5100 },
+      "line_range": { "start_line": 140, "end_line": 165 },
+      "snippet": "let embed_chunks: Vec<_> = chunks.iter().map(|c| c.content.clone()).collect();\nlet embeddings = self.embedder.embed_batch(&embed_chunks)?;"
+    }
+  }
+]</code></pre>
         </section>
       </article>
 
@@ -928,7 +978,7 @@ cargo test --workspace</code></pre>
       <article class="doc-article" data-doc-id="engine-architecture" style="display: none;">
         <h1 class="doc-article-title">System & Crates Architecture (§5)</h1>
         <p class="doc-article-lead">
-          Detailed technical overview of the 8 modular workspace crates comprising NaviFS.
+          Detailed technical overview of the 9 modular workspace crates comprising NaviFS.
         </p>
 
         <section class="doc-section">
@@ -943,19 +993,23 @@ cargo test --workspace</code></pre>
               <tbody>
                 <tr>
                   <td><span class="doc-code-inline">crates/core</span></td>
-                  <td>Domain identity, FileId, ChunkId, ByteRange, LineRange, MimeType, Result types</td>
+                  <td>Domain identity, FileId, ChunkId, ByteRange, LineRange, MimeType, Embedder trait, Result types</td>
                 </tr>
                 <tr>
                   <td><span class="doc-code-inline">crates/database</span></td>
-                  <td>Embedded SQLite, WAL mode, foreign keys, migrations 0001-0003, FTS5 sync triggers</td>
+                  <td>Embedded SQLite, WAL mode, foreign keys, migrations 0001-0003, FTS5 sync triggers, embedding BLOB storage</td>
                 </tr>
                 <tr>
                   <td><span class="doc-code-inline">crates/extract</span></td>
-                  <td>Multi-modal parsers: PDF, XLSX (calamine), DOCX (quick-xml), Markdown, JSON</td>
+                  <td>Multi-modal parsers: PDF, XLSX (calamine), DOCX (quick-xml), Markdown, JSON, plain text</td>
+                </tr>
+                <tr>
+                  <td><span class="doc-code-inline">crates/embed</span></td>
+                  <td>Local sentence embeddings (BGE-small-en-v1.5, 384-d) on pure-Rust Candle; zero external DLLs, offline cached</td>
                 </tr>
                 <tr>
                   <td><span class="doc-code-inline">crates/search</span></td>
-                  <td>FTS5 content/path search, Vector ANN, RRF (k=20), Feature Reranker</td>
+                  <td>3-channel hybrid retrieval (Content FTS5 + Path + Vector similarity), RRF (k=20), 4D Feature Reranker</td>
                 </tr>
                 <tr>
                   <td><span class="doc-code-inline">crates/graph</span></td>
@@ -963,15 +1017,15 @@ cargo test --workspace</code></pre>
                 </tr>
                 <tr>
                   <td><span class="doc-code-inline">crates/indexer</span></td>
-                  <td>Directory scanner (WalkDir) and Notify debounced watcher with SHA-256 verification</td>
+                  <td>Directory scanner (WalkDir), debounced watcher with SHA-256 verification, batch vector embedding</td>
                 </tr>
                 <tr>
                   <td><span class="doc-code-inline">crates/mcp</span></td>
-                  <td>JSON-RPC 2.0 stdio server, tool dispatcher, MCP 2024-11-05 schemas</td>
+                  <td>JSON-RPC 2.0 stdio server, tool dispatcher, MCP 2024-11-05 standard schemas</td>
                 </tr>
                 <tr>
                   <td><span class="doc-code-inline">crates/daemon</span></td>
-                  <td>CLI binary entrypoint: daemon, scan, search, and mcp stdio mode</td>
+                  <td>CLI binary entrypoint: daemon, scan, search, mcp stdio mode, and atomic AI client setup</td>
                 </tr>
               </tbody>
             </table>

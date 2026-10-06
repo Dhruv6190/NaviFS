@@ -19,12 +19,12 @@ pub use types::{
     RerankerFeatures, RerankerWeights,
 };
 
+use async_trait::async_trait;
+use navifs_core::{FileChunk, FileId, Result, SearchHit, SearchProvider};
 use std::collections::HashMap;
 use std::sync::Arc;
-use async_trait::async_trait;
 use tokio::sync::RwLock;
 use tracing::{debug, info};
-use navifs_core::{FileChunk, FileId, Result, SearchHit, SearchProvider};
 
 /// Inverted-index entry for indexed terms
 #[derive(Debug, Clone)]
@@ -79,7 +79,10 @@ impl SearchProvider for LexicalSearchEngine {
             let file_uuid = *chunk.file_id.as_uuid();
 
             // Store chunk data
-            store.insert(chunk_uuid, (file_uuid, chunk.chunk_index, chunk.content.clone()));
+            store.insert(
+                chunk_uuid,
+                (file_uuid, chunk.chunk_index, chunk.content.clone()),
+            );
 
             // Tokenize content
             let tokens = tokenize(&chunk.content);
@@ -142,14 +145,22 @@ impl SearchProvider for LexicalSearchEngine {
                 for entry in entries {
                     let tf = entry.term_frequency as f32;
                     let term_score = tf * idf;
-                    let acc = scores.entry(entry.chunk_id).or_insert((0.0, entry.file_id, entry.chunk_index));
+                    let acc = scores.entry(entry.chunk_id).or_insert((
+                        0.0,
+                        entry.file_id,
+                        entry.chunk_index,
+                    ));
                     acc.0 += term_score;
                 }
             }
         }
 
         let mut ranked: Vec<(uuid::Uuid, (f32, uuid::Uuid, u32))> = scores.into_iter().collect();
-        ranked.sort_by(|a, b| b.1 .0.partial_cmp(&a.1 .0).unwrap_or(std::cmp::Ordering::Equal));
+        ranked.sort_by(|a, b| {
+            b.1 .0
+                .partial_cmp(&a.1 .0)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
 
         let mut hits = Vec::new();
         for (chunk_id, (score, file_id, chunk_index)) in ranked.into_iter().take(limit) {
@@ -176,9 +187,11 @@ impl SearchProvider for LexicalSearchEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
-    use navifs_core::{ByteRange, ChunkType, ContentHash, DatabaseStore, FileIdentity, LineRange, PageRange};
+    use navifs_core::{
+        ByteRange, ChunkType, ContentHash, DatabaseStore, FileIdentity, LineRange, PageRange,
+    };
     use navifs_database::SqliteDatabase;
+    use std::path::Path;
 
     #[test]
     fn test_path_filter_matching() {
@@ -232,7 +245,9 @@ mod tests {
         let chunk = FileChunk::new(
             file.id,
             0,
-            ChunkType::CodeBlock { language: "rust".to_string() },
+            ChunkType::CodeBlock {
+                language: "rust".to_string(),
+            },
             ByteRange::new(0, 200),
             Some(LineRange::new(20, 50)),
             "pub struct RecursiveScanner with notify watcher and SHA256 detection".to_string(),
@@ -246,7 +261,10 @@ mod tests {
             .with_limit(5);
 
         let results = engine.search_hybrid(query).await.unwrap();
-        assert!(!results.is_empty(), "Expected candidate result from hybrid search");
+        assert!(
+            !results.is_empty(),
+            "Expected candidate result from hybrid search"
+        );
         let top = &results[0];
         assert_eq!(top.file_id, file.id);
         assert!(top.score > 0.0);
@@ -269,7 +287,9 @@ mod tests {
         let chunk = FileChunk::new(
             file.id,
             0,
-            ChunkType::CodeBlock { language: "rust".to_string() },
+            ChunkType::CodeBlock {
+                language: "rust".to_string(),
+            },
             ByteRange::new(0, 100),
             Some(LineRange::new(1, 10)),
             "fn vector_search() {}".to_string(),

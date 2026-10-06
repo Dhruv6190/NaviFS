@@ -1,9 +1,9 @@
 //! Database migration engine executing embedded SQL scripts in atomic transactions
 
 use chrono::Utc;
+use navifs_core::{NaviError, Result};
 use rusqlite::{params, Connection};
 use tracing::info;
-use navifs_core::{NaviError, Result};
 
 pub struct Migration {
     pub version: i32,
@@ -49,27 +49,48 @@ pub fn run_migrations(conn: &mut Connection) -> Result<()> {
                 params![migration.version],
                 |row| row.get(0),
             )
-            .map_err(|e| NaviError::Database(format!("Failed to check migration {}: {}", migration.name, e)))?;
+            .map_err(|e| {
+                NaviError::Database(format!(
+                    "Failed to check migration {}: {}",
+                    migration.name, e
+                ))
+            })?;
 
         if !already_applied {
-            info!("Applying database migration #{}: {}", migration.version, migration.name);
+            info!(
+                "Applying database migration #{}: {}",
+                migration.version, migration.name
+            );
 
-            let tx = conn
-                .transaction()
-                .map_err(|e| NaviError::Database(format!("Failed to begin migration transaction: {}", e)))?;
+            let tx = conn.transaction().map_err(|e| {
+                NaviError::Database(format!("Failed to begin migration transaction: {}", e))
+            })?;
 
-            tx.execute_batch(migration.sql)
-                .map_err(|e| NaviError::Database(format!("Failed executing migration {}: {}", migration.name, e)))?;
+            tx.execute_batch(migration.sql).map_err(|e| {
+                NaviError::Database(format!(
+                    "Failed executing migration {}: {}",
+                    migration.name, e
+                ))
+            })?;
 
             let now = Utc::now().to_rfc3339();
             tx.execute(
                 "INSERT INTO schema_migrations (version, name, applied_at) VALUES (?1, ?2, ?3)",
                 params![migration.version, migration.name, now],
             )
-            .map_err(|e| NaviError::Database(format!("Failed recording migration {}: {}", migration.name, e)))?;
+            .map_err(|e| {
+                NaviError::Database(format!(
+                    "Failed recording migration {}: {}",
+                    migration.name, e
+                ))
+            })?;
 
-            tx.commit()
-                .map_err(|e| NaviError::Database(format!("Failed committing migration {}: {}", migration.name, e)))?;
+            tx.commit().map_err(|e| {
+                NaviError::Database(format!(
+                    "Failed committing migration {}: {}",
+                    migration.name, e
+                ))
+            })?;
 
             info!("Migration #{} successfully applied", migration.version);
         }

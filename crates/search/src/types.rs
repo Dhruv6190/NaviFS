@@ -1,8 +1,8 @@
 //! Types and query parameters for hybrid retrieval, filtering, rank fusion, and evidence lookups
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use navifs_core::{ByteRange, ChunkId, FileId, FileIdentity, LineRange, PageRange};
+use serde::{Deserialize, Serialize};
 
 /// Path-based scoping and filtering for search operations
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -55,7 +55,10 @@ impl PathFilter {
                 .unwrap_or("")
                 .to_lowercase();
 
-            if !allowed_exts.iter().any(|allowed| allowed.eq_ignore_ascii_case(&ext)) {
+            if !allowed_exts
+                .iter()
+                .any(|allowed| allowed.eq_ignore_ascii_case(&ext))
+            {
                 return false;
             }
         }
@@ -96,7 +99,11 @@ impl MetadataFilter {
         self
     }
 
-    pub fn with_time_range(mut self, min: Option<DateTime<Utc>>, max: Option<DateTime<Utc>>) -> Self {
+    pub fn with_time_range(
+        mut self,
+        min: Option<DateTime<Utc>>,
+        max: Option<DateTime<Utc>>,
+    ) -> Self {
         self.min_modified = min;
         self.max_modified = max;
         self
@@ -113,7 +120,10 @@ impl MetadataFilter {
         // 1. MIME types
         if let Some(ref allowed_mimes) = self.mime_types {
             let mime_str = file.mime_type.as_str();
-            if !allowed_mimes.iter().any(|m| m.eq_ignore_ascii_case(mime_str)) {
+            if !allowed_mimes
+                .iter()
+                .any(|m| m.eq_ignore_ascii_case(mime_str))
+            {
                 return false;
             }
         }

@@ -64,7 +64,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_pdf_stream_text_and_bounds() {
-        let raw_stream = b"BT /F1 12 Tf (NaviFS Intelligent System) Tj T* (Page Content Line 2) Tj ET";
+        let raw_stream =
+            b"BT /F1 12 Tf (NaviFS Intelligent System) Tj T* (Page Content Line 2) Tj ET";
         let lines = PdfExtractor::extract_text_from_stream(raw_stream);
         assert_eq!(lines.len(), 2);
         assert_eq!(lines[0], "NaviFS Intelligent System");

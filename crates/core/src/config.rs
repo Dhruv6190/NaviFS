@@ -1,5 +1,9 @@
-use std::path::PathBuf;
+use crate::error::{NaviError, Result};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
+/// Environment variable that overrides the NaviFS data directory
+pub const DATA_DIR_ENV: &str = "NAVIFS_DATA_DIR";
 
 /// Global configuration for the NaviFS daemon and subsystems
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,24 +16,42 @@ pub struct EngineConfig {
     pub indexing: IndexingConfig,
 }
 
-impl Default for EngineConfig {
-    fn default() -> Self {
-        let home = std::env::var("USERPROFILE")
-            .or_else(|_| std::env::var("HOME"))
-            .unwrap_or_else(|_| ".".to_string());
-        let default_data_dir = PathBuf::from(home).join(".navifs");
+impl EngineConfig {
+    /// Builds the configuration, resolving the data directory in this order:
+    /// explicit override, the `NAVIFS_DATA_DIR` environment variable, then the platform
+    /// data directory (`%LOCALAPPDATA%\navifs`, `~/.local/share/navifs`,
+    /// `~/Library/Application Support/navifs`).
+    pub fn discover(data_dir_override: Option<PathBuf>) -> Result<Self> {
+        let data_dir = match data_dir_override {
+            Some(dir) => dir,
+            None => match std::env::var_os(DATA_DIR_ENV) {
+                Some(dir) if !dir.is_empty() => PathBuf::from(dir),
+                _ => directories::ProjectDirs::from("dev", "navifs", "navifs")
+                    .map(|dirs| dirs.data_dir().to_path_buf())
+                    .ok_or_else(|| {
+                        NaviError::ConfigError(format!(
+                            "could not determine a user data directory; set {DATA_DIR_ENV}"
+                        ))
+                    })?,
+            },
+        };
 
-        Self {
-            engine_name: "NaviFS Intelligent Engine".to_string(),
+        Ok(Self {
+            engine_name: "NaviFS".to_string(),
             database: DatabaseConfig {
-                db_path: default_data_dir.join("navifs.db"),
+                db_path: data_dir.join("navifs.db"),
                 max_connections: 5,
             },
-            data_dir: default_data_dir,
+            data_dir,
             watch_paths: Vec::new(),
             mcp: McpConfig::default(),
             indexing: IndexingConfig::default(),
-        }
+        })
+    }
+
+    /// Directory where downloaded embedding models are cached
+    pub fn models_dir(&self) -> PathBuf {
+        self.data_dir.join("models")
     }
 }
 

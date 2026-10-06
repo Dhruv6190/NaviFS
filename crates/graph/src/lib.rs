@@ -1,9 +1,9 @@
 //! In-memory knowledge graph representation and traversal for NaviFS
 
+use navifs_core::{EntityId, EntityNode, RelationEdge};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use navifs_core::{EntityId, EntityNode, RelationEdge};
 
 /// In-memory graph engine managing entities and directional relationships
 #[derive(Debug, Default, Clone)]
@@ -116,10 +116,16 @@ impl KnowledgeGraph {
         let nodes = self.nodes.read().await;
         let out = self.outgoing.read().await;
 
-        let mut dot = String::from("digraph NaviFS_KnowledgeGraph {\n  rankdir=LR;\n  node [shape=box, style=rounded];\n");
+        let mut dot = String::from(
+            "digraph NaviFS_KnowledgeGraph {\n  rankdir=LR;\n  node [shape=box, style=rounded];\n",
+        );
 
         for (id, node) in nodes.iter() {
-            let label = format!("{}\\n({:?})", node.name.replace('"', "\\\""), node.entity_type);
+            let label = format!(
+                "{}\\n({:?})",
+                node.name.replace('"', "\\\""),
+                node.entity_type
+            );
             dot.push_str(&format!("  \"{}\" [label=\"{}\"];\n", id, label));
         }
 

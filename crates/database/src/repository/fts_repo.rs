@@ -1,8 +1,8 @@
 //! Full-text lexical search repository using SQLite FTS5 with BM25 ranking and snippet generation
 
+use navifs_core::{ChunkId, FileId, NaviError, Result};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
-use navifs_core::{ChunkId, FileId, NaviError, Result};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FtsSearchResult {
@@ -66,7 +66,8 @@ impl FtsRepository {
                 let snippet: String = row.get(4)?;
                 let raw_score: f64 = row.get(5)?;
 
-                let file_id = FileId::parse(&file_id_str).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                let file_id =
+                    FileId::parse(&file_id_str).map_err(|_| rusqlite::Error::InvalidQuery)?;
                 let chunk_id = chunk_id_opt.and_then(|c| ChunkId::parse(&c).ok());
 
                 // SQLite BM25 returns lower negative values for higher relevance
@@ -91,7 +92,11 @@ impl FtsRepository {
     }
 
     /// Searches specifically by file name or path using column-scoped parametric queries
-    pub fn search_by_filename_or_path(conn: &Connection, term: &str, limit: usize) -> Result<Vec<FtsSearchResult>> {
+    pub fn search_by_filename_or_path(
+        conn: &Connection,
+        term: &str,
+        limit: usize,
+    ) -> Result<Vec<FtsSearchResult>> {
         let clean_term = term.replace('"', "\"\"");
         let scoped_query = format!("filename: \"{}\"* OR path: \"{}\"*", clean_term, clean_term);
 
@@ -111,7 +116,9 @@ impl FtsRepository {
                 LIMIT ?2
                 "#,
             )
-            .map_err(|e| NaviError::SearchError(format!("Failed to prepare path FTS query: {}", e)))?;
+            .map_err(|e| {
+                NaviError::SearchError(format!("Failed to prepare path FTS query: {}", e))
+            })?;
 
         let rows = stmt
             .query_map(params![scoped_query, limit as i64], |row| {
@@ -122,7 +129,8 @@ impl FtsRepository {
                 let snippet: String = row.get(4)?;
                 let raw_score: f64 = row.get(5)?;
 
-                let file_id = FileId::parse(&file_id_str).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                let file_id =
+                    FileId::parse(&file_id_str).map_err(|_| rusqlite::Error::InvalidQuery)?;
                 let chunk_id = chunk_id_opt.and_then(|c| ChunkId::parse(&c).ok());
                 let score = (-raw_score as f32).max(0.01);
 
@@ -135,7 +143,9 @@ impl FtsRepository {
                     score,
                 })
             })
-            .map_err(|e| NaviError::SearchError(format!("Failed executing path FTS search: {}", e)))?;
+            .map_err(|e| {
+                NaviError::SearchError(format!("Failed executing path FTS search: {}", e))
+            })?;
 
         let mut results = Vec::new();
         for r in rows {

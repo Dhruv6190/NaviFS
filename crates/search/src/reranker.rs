@@ -1,9 +1,9 @@
 //! Feature vector reranker evaluating lexical score, path similarity, freshness, and extraction quality
 
-use chrono::{DateTime, Utc};
-use navifs_core::{FileChunk, FileIdentity};
 use crate::fusion::FusedCandidate;
 use crate::types::{RerankerFeatures, RerankerWeights};
+use chrono::{DateTime, Utc};
+use navifs_core::{FileChunk, FileIdentity};
 
 /// Multi-feature vector reranker that refines fused candidates into an optimal top-K ranking
 pub struct FeatureVectorReranker {
@@ -29,7 +29,8 @@ impl FeatureVectorReranker {
         chunk: Option<&FileChunk>,
     ) -> RerankerFeatures {
         let lexical_score = self.compute_lexical_score(candidate.fused_score, max_fused_score);
-        let path_similarity = self.compute_path_similarity(query, &candidate.path, &candidate.filename);
+        let path_similarity =
+            self.compute_path_similarity(query, &candidate.path, &candidate.filename);
         let freshness_score = self.compute_freshness(file.map(|f| f.modified_at));
         let extraction_quality = self.compute_extraction_quality(chunk, &candidate.snippet);
 
@@ -75,7 +76,10 @@ impl FeatureVectorReranker {
             .unwrap_or(&clean_filename);
 
         // 1. Exact match bonus on filename stem
-        if query_tokens.iter().any(|&token| token == stem || stem.contains(token)) {
+        if query_tokens
+            .iter()
+            .any(|&token| token == stem || stem.contains(token))
+        {
             let depth = clean_path.chars().filter(|&c| c == '/').count();
             let depth_factor = 1.0 / (1.0 + 0.05 * depth as f32);
             return (0.95 * depth_factor).clamp(0.6, 1.0);
@@ -124,15 +128,17 @@ impl FeatureVectorReranker {
                 }
 
                 // 2. Page range or structural section presence
-                if c.page_range.is_some() || matches!(c.chunk_type, navifs_core::ChunkType::MarkdownSection { .. }) {
+                if c.page_range.is_some()
+                    || matches!(c.chunk_type, navifs_core::ChunkType::MarkdownSection { .. })
+                {
                     quality += 0.25;
                 }
 
                 // 3. Optimal length sizing (penalize tiny stubs < 40 chars, reward rich informative chunks)
                 let len = c.content.len();
-                if len >= 150 && len <= 2500 {
+                if (150..=2500).contains(&len) {
                     quality += 0.30;
-                } else if len >= 40 && len < 150 {
+                } else if (40..150).contains(&len) {
                     quality += 0.20;
                 } else if len > 2500 {
                     quality += 0.25;
@@ -141,7 +147,11 @@ impl FeatureVectorReranker {
                 }
 
                 // 4. Content density and readable character ratio
-                let alphanumeric_count = c.content.chars().filter(|ch| ch.is_alphanumeric() || ch.is_whitespace()).count();
+                let alphanumeric_count = c
+                    .content
+                    .chars()
+                    .filter(|ch| ch.is_alphanumeric() || ch.is_whitespace())
+                    .count();
                 let ratio = alphanumeric_count as f32 / len.max(1) as f32;
                 if ratio > 0.8 {
                     quality += 0.20;

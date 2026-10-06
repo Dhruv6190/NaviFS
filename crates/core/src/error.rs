@@ -33,6 +33,9 @@ pub enum NaviError {
     #[error("Search error: {0}")]
     SearchError(String),
 
+    #[error("Embedding error: {0}")]
+    Embedding(String),
+
     #[error("Graph error: {0}")]
     GraphError(String),
 

@@ -1,8 +1,8 @@
 //! Repository for recording and querying temporal file lifecycle events (§13 & §17.1)
 
 use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection};
 use navifs_core::{FileId, FileTemporalEvent, NaviError, Result};
+use rusqlite::{params, Connection};
 
 pub struct EventRepository;
 
@@ -30,7 +30,11 @@ impl EventRepository {
     }
 
     /// Retrieves recent temporal events for a specific file ordered newest first
-    pub fn get_for_file(conn: &Connection, file_id: &FileId, limit: usize) -> Result<Vec<FileTemporalEvent>> {
+    pub fn get_for_file(
+        conn: &Connection,
+        file_id: &FileId,
+        limit: usize,
+    ) -> Result<Vec<FileTemporalEvent>> {
         let mut stmt = conn
             .prepare(
                 r#"
@@ -41,7 +45,12 @@ impl EventRepository {
                 LIMIT ?2
                 "#,
             )
-            .map_err(|e| NaviError::Database(format!("EventRepository::get_for_file prepare failed: {}", e)))?;
+            .map_err(|e| {
+                NaviError::Database(format!(
+                    "EventRepository::get_for_file prepare failed: {}",
+                    e
+                ))
+            })?;
 
         let rows = stmt
             .query_map(params![file_id.to_string(), limit as i64], |row| {
@@ -54,15 +63,18 @@ impl EventRepository {
 
                 Ok((id, fid_str, event_type, ts_str, source, metadata))
             })
-            .map_err(|e| NaviError::Database(format!("EventRepository::get_for_file query failed: {}", e)))?;
+            .map_err(|e| {
+                NaviError::Database(format!("EventRepository::get_for_file query failed: {}", e))
+            })?;
 
         let mut events = Vec::new();
         for row in rows {
             let (id, fid_str, event_type, ts_str, source, metadata) =
                 row.map_err(|e| NaviError::Database(format!("EventRepository row error: {}", e)))?;
 
-            let parsed_fid = FileId::parse(&fid_str)
-                .map_err(|e| NaviError::Database(format!("Invalid file_id in event record: {}", e)))?;
+            let parsed_fid = FileId::parse(&fid_str).map_err(|e| {
+                NaviError::Database(format!("Invalid file_id in event record: {}", e))
+            })?;
             let timestamp = DateTime::parse_from_rfc3339(&ts_str)
                 .map(|dt| dt.with_timezone(&Utc))
                 .unwrap_or_else(|_| Utc::now());

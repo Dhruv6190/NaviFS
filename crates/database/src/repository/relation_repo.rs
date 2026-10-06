@@ -1,20 +1,20 @@
 //! Repository for persisting graph entities and relationships using parametric queries
 
 use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection, OptionalExtension};
 use navifs_core::{
     ChunkId, EntityId, EntityNode, EntityType, FileId, NaviError, RelationEdge, RelationId,
     RelationType, Result,
 };
+use rusqlite::{params, Connection, OptionalExtension};
 
 pub struct RelationRepository;
 
 impl RelationRepository {
     /// Inserts or updates relationships inside a transaction with parametric inputs
     pub fn save_relationships(conn: &mut Connection, relations: &[RelationEdge]) -> Result<()> {
-        let tx = conn
-            .transaction()
-            .map_err(|e| NaviError::Database(format!("Failed to begin relations transaction: {}", e)))?;
+        let tx = conn.transaction().map_err(|e| {
+            NaviError::Database(format!("Failed to begin relations transaction: {}", e))
+        })?;
 
         {
             let mut stmt = tx
@@ -43,12 +43,15 @@ impl RelationRepository {
                     props_str,
                     r.created_at.to_rfc3339(),
                 ])
-                .map_err(|e| NaviError::Database(format!("Failed inserting relationship: {}", e)))?;
+                .map_err(|e| {
+                    NaviError::Database(format!("Failed inserting relationship: {}", e))
+                })?;
             }
         }
 
-        tx.commit()
-            .map_err(|e| NaviError::Database(format!("Failed committing relations transaction: {}", e)))?;
+        tx.commit().map_err(|e| {
+            NaviError::Database(format!("Failed committing relations transaction: {}", e))
+        })?;
 
         Ok(())
     }
@@ -76,10 +79,14 @@ impl RelationRepository {
                 let cr: String = row.get(6)?;
 
                 let id = RelationId::parse(&id_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
-                let source_id = EntityId::parse(&src_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
-                let target_id = EntityId::parse(&tgt_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
-                let relation_type: RelationType = serde_json::from_str(&t_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
-                let properties: serde_json::Value = serde_json::from_str(&p_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                let source_id =
+                    EntityId::parse(&src_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                let target_id =
+                    EntityId::parse(&tgt_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                let relation_type: RelationType =
+                    serde_json::from_str(&t_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                let properties: serde_json::Value =
+                    serde_json::from_str(&p_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
                 let created_at = DateTime::parse_from_rfc3339(&cr)
                     .map_err(|_| rusqlite::Error::InvalidQuery)?
                     .with_timezone(&Utc);
@@ -105,9 +112,9 @@ impl RelationRepository {
 
     /// Inserts or updates entities in batch inside a transaction with parametric inputs
     pub fn save_entities(conn: &mut Connection, entities: &[EntityNode]) -> Result<()> {
-        let tx = conn
-            .transaction()
-            .map_err(|e| NaviError::Database(format!("Failed to begin entities transaction: {}", e)))?;
+        let tx = conn.transaction().map_err(|e| {
+            NaviError::Database(format!("Failed to begin entities transaction: {}", e))
+        })?;
 
         {
             let mut stmt = tx
@@ -140,8 +147,9 @@ impl RelationRepository {
             }
         }
 
-        tx.commit()
-            .map_err(|e| NaviError::Database(format!("Failed committing entities transaction: {}", e)))?;
+        tx.commit().map_err(|e| {
+            NaviError::Database(format!("Failed committing entities transaction: {}", e))
+        })?;
 
         Ok(())
     }
@@ -169,8 +177,10 @@ impl RelationRepository {
                 let cr: String = row.get(6)?;
 
                 let node_id = EntityId::parse(&id_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
-                let entity_type: EntityType = serde_json::from_str(&t_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
-                let properties: serde_json::Value = serde_json::from_str(&p_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                let entity_type: EntityType =
+                    serde_json::from_str(&t_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                let properties: serde_json::Value =
+                    serde_json::from_str(&p_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
                 let file_id = f_s.and_then(|s| FileId::parse(&s).ok());
                 let chunk_id = c_s.and_then(|s| ChunkId::parse(&s).ok());
                 let created_at = DateTime::parse_from_rfc3339(&cr)
@@ -194,7 +204,11 @@ impl RelationRepository {
     }
 
     /// Finds entities by name prefix or exact match using parametric queries
-    pub fn find_entities_by_name(conn: &Connection, name_pattern: &str, limit: usize) -> Result<Vec<EntityNode>> {
+    pub fn find_entities_by_name(
+        conn: &Connection,
+        name_pattern: &str,
+        limit: usize,
+    ) -> Result<Vec<EntityNode>> {
         let mut stmt = conn
             .prepare(
                 r#"
@@ -216,8 +230,10 @@ impl RelationRepository {
                 let cr: String = row.get(6)?;
 
                 let node_id = EntityId::parse(&id_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
-                let entity_type: EntityType = serde_json::from_str(&t_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
-                let properties: serde_json::Value = serde_json::from_str(&p_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                let entity_type: EntityType =
+                    serde_json::from_str(&t_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                let properties: serde_json::Value =
+                    serde_json::from_str(&p_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
                 let file_id = f_s.and_then(|s| FileId::parse(&s).ok());
                 let chunk_id = c_s.and_then(|s| ChunkId::parse(&s).ok());
                 let created_at = DateTime::parse_from_rfc3339(&cr)
@@ -266,8 +282,10 @@ impl RelationRepository {
                 let cr: String = row.get(6)?;
 
                 let node_id = EntityId::parse(&id_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
-                let entity_type: EntityType = serde_json::from_str(&t_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
-                let properties: serde_json::Value = serde_json::from_str(&p_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                let entity_type: EntityType =
+                    serde_json::from_str(&t_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
+                let properties: serde_json::Value =
+                    serde_json::from_str(&p_s).map_err(|_| rusqlite::Error::InvalidQuery)?;
                 let file_id = f_s.and_then(|s| FileId::parse(&s).ok());
                 let chunk_id = c_s.and_then(|s| ChunkId::parse(&s).ok());
                 let created_at = DateTime::parse_from_rfc3339(&cr)

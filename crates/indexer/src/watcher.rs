@@ -1,21 +1,29 @@
 //! Real-time filesystem watcher using notify with SHA-256 change detection and path exclusions
 
+use crate::exclusion::PathExclusionFilter;
+use navifs_core::{ContentHash, NaviError, Result};
+use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use notify::{Config, Event, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tracing::{debug, info, trace, warn};
-use navifs_core::{ContentHash, NaviError, Result};
-use crate::exclusion::PathExclusionFilter;
 
 /// High-level change event verified by SHA-256 hash comparison
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FsChangeEvent {
-    Created { path: PathBuf, hash: ContentHash },
-    Modified { path: PathBuf, new_hash: ContentHash },
-    Deleted { path: PathBuf },
+    Created {
+        path: PathBuf,
+        hash: ContentHash,
+    },
+    Modified {
+        path: PathBuf,
+        new_hash: ContentHash,
+    },
+    Deleted {
+        path: PathBuf,
+    },
 }
 
 /// Notify-based filesystem watcher that filters exclusions and deduplicates via SHA-256
@@ -45,20 +53,19 @@ impl NotifyWatcher {
         let filter_clone = filter.clone();
         let debounce = Duration::from_millis(debounce_ms.max(100));
 
-        let event_handler = move |res: notify::Result<Event>| {
-            match res {
-                Ok(event) => {
-                    trace!("Raw notify event: {:?}", event);
-                    Self::handle_raw_event(event, &filter_clone, &hashes_clone, debounce, &tx);
-                }
-                Err(e) => {
-                    warn!("Filesystem watcher error: {}", e);
-                }
+        let event_handler = move |res: notify::Result<Event>| match res {
+            Ok(event) => {
+                trace!("Raw notify event: {:?}", event);
+                Self::handle_raw_event(event, &filter_clone, &hashes_clone, debounce, &tx);
+            }
+            Err(e) => {
+                warn!("Filesystem watcher error: {}", e);
             }
         };
 
-        let watcher = RecommendedWatcher::new(event_handler, Config::default())
-            .map_err(|e| NaviError::IndexingError(format!("Failed to initialize notify watcher: {}", e)))?;
+        let watcher = RecommendedWatcher::new(event_handler, Config::default()).map_err(|e| {
+            NaviError::IndexingError(format!("Failed to initialize notify watcher: {}", e))
+        })?;
 
         let instance = Self {
             filter,
@@ -88,9 +95,9 @@ impl NotifyWatcher {
 
     /// Stops watching a target directory
     pub fn unwatch_path(&mut self, path: &Path) -> Result<()> {
-        self.watcher
-            .unwatch(path)
-            .map_err(|e| NaviError::IndexingError(format!("Failed to unwatch {:?}: {}", path, e)))?;
+        self.watcher.unwatch(path).map_err(|e| {
+            NaviError::IndexingError(format!("Failed to unwatch {:?}: {}", path, e))
+        })?;
 
         self.watched_paths.retain(|p| p != path);
         Ok(())
@@ -127,7 +134,9 @@ impl NotifyWatcher {
 
                                 if let Some((prev_hash, last_time)) = cache.get(&path) {
                                     // Debounce and hash equality check
-                                    if prev_hash == &new_hash && now.duration_since(*last_time) < debounce {
+                                    if prev_hash == &new_hash
+                                        && now.duration_since(*last_time) < debounce
+                                    {
                                         trace!("Deduplicating identical SHA-256 for: {:?}", path);
                                         continue;
                                     }
@@ -154,7 +163,11 @@ impl NotifyWatcher {
                                 }
                             }
                             Err(e) => {
-                                trace!("Could not read file during watcher event {:?}: {}", path, e);
+                                trace!(
+                                    "Could not read file during watcher event {:?}: {}",
+                                    path,
+                                    e
+                                );
                             }
                         }
                     }
